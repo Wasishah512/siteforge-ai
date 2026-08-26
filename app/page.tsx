@@ -1,69 +1,129 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import Link from "next/link";
+import {
+  ArrowRight,
+  Check,
+  Sparkles,
+  LayoutTemplate,
+  WandSparkles,
+  Search,
+} from "lucide-react";
+
+const features = [
+  {
+    icon: LayoutTemplate,
+    title: "Structure before styling",
+    text: "Start with a clear sitemap and a thoughtful content plan.",
+  },
+  {
+    icon: WandSparkles,
+    title: "Copy with character",
+    text: "Give every page a voice that fits your business, not a template.",
+  },
+  {
+    icon: Search,
+    title: "Ready for discovery",
+    text: "SEO metadata and page essentials are drafted from the start.",
+  },
+];
+
+export default function LandingPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="landing-page">
+      <nav className="landing-nav">
+        <div className="landing-nav-inner">
+          <Link href="/" className="brand">
+            <span className="brand-mark">
+              <Sparkles size={14} />
+            </span>
+            <span>Siteforge</span>
+            <span className="brand-ai">AI</span>
+          </Link>
+          <div className="landing-nav-links">
+            <Link href="/FrontEnd/login" className="landing-login-link">
+              Log in
+            </Link>
+            <Link href="/FrontEnd/register" className="primary-button">
+              Start building <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      </nav>
+
+      <section className="landing-hero">
+        <div className="aurora-blob aurora-blob-a" />
+        <div className="aurora-blob aurora-blob-b" />
+
+        <p className="eyebrow landing-hero-label">
+          BUSINESS PROFILE <span>→</span> SITEMAP <span>→</span> LIVE DRAFT
+        </p>
+
+        <h1 className="landing-title">
+          A different site
+          <br />
+          <span className="text-gradient">for every business.</span>
+        </h1>
+
+        <p className="landing-subtitle">
+          Siteforge drafts your sitemap, writes every page, and shapes a brand
+          voice that actually fits — so you can focus on the work behind the
+          website.
+        </p>
+
+        <div className="landing-actions">
+          <Link
+            href="/FrontEnd/register"
+            className="primary-button landing-primary-action"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
+            Create your workspace <ArrowRight size={15} />
+          </Link>
+          <a href="#process" className="landing-inline-link">
+            See how it works
           </a>
         </div>
-      </main>
-    </div>
+
+        <div className="landing-metrics">
+          {[
+            ["8", "structured page types"],
+            ["10", "brand voice presets"],
+            ["0", "unreviewed publishes"],
+          ].map(([n, l]) => (
+            <div key={l} className="landing-metric">
+              <strong className="text-gradient">{n}</strong>
+              <p>{l}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="process" className="landing-process">
+        <p className="eyebrow">THE PROCESS</p>
+        <h2>From description to draft, in order.</h2>
+
+        <div className="landing-process-grid">
+          {features.map(({ icon: Icon, title, text }) => (
+            <article key={title} className="surface-card landing-feature-card">
+              <Icon className="feature-icon" size={22} />
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-cta">
+        <div>
+          <h2>Every page starts as a draft.</h2>
+          <p>Review, edit, and regenerate before anything goes live.</p>
+        </div>
+        <Link
+          href="/FrontEnd/register"
+          className="primary-button landing-cta-button"
+        >
+          Start your project <ArrowRight size={14} />
+        </Link>
+      </section>
+    </main>
   );
 }
