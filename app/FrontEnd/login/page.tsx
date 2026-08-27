@@ -16,14 +16,16 @@ export default function LoginPage() {
   const [focused, setFocused] = useState<string | null>(null);
   const [blur, setBlur] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
     if (email.trim() === "" || password.trim() === "") {
       alert("Please fill in all fields.");
       return;
     }
 
     try {
-      // api
       const result = await authClient.signIn.email({
         email: email.trim(),
         password,
@@ -33,11 +35,25 @@ export default function LoginPage() {
         setError(result.error.message || "Login failed.");
         return;
       }
+
+      const userName = result?.data?.user?.name;
+      const userEmail = result?.data?.user?.email || email.trim();
+
+      fetch("/api/emails/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: userEmail,
+          name: userName,
+        }),
+      }).catch((err) => console.error("Login email failed:", err));
+
       router.push("/FrontEnd/Dashboard");
     } catch (error) {
       alert("Login failed. Please check your credentials and try again.");
     }
   };
+
   return (
     <main className="auth-page">
       <div className="auth-glow" />

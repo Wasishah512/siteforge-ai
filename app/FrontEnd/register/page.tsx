@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowRight, Eye, EyeOff, Sparkles, Camera, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-// import image from "../../api/upload/images/route";
+import { sendWelcomeEmail } from "../../../lib/Emails/welcome";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -92,6 +92,17 @@ export default function SignupPage() {
         setError(result.error.message || "Registration failed.");
         return;
       }
+
+      // email automation
+      // fire-and-forget: don't let email sending block or fail registration
+      fetch("/api/emails/wellcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          name: name.trim(),
+        }),
+      }).catch((err) => console.error("Welcome email failed:", err));
 
       alert(
         "Registration successful! Please check your email to verify your account.",

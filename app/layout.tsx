@@ -2,10 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Siteforge AI — Build websites from your ideas",
-  description:
-    "A focused workspace for shaping, writing, and launching your next website with AI.",
-  generator: "v0.app",
+  title: "Siteforge AI",
+  description: "Build websites at the speed of thought",
+  icons: {
+    icon: "/images/siteforge_ai_logo.png",
+  },
 };
 
 export const viewport: Viewport = {
