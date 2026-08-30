@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 SiteForge AI
 
-## Getting Started
+SiteForge AI is an AI-powered website generation platform that helps businesses go from a business profile to a structured website draft.
 
-First, run the development server:
+The platform collects business information through an interactive AI assistant, stores the information in PostgreSQL, and uses that structured data as the foundation for generating website content, sitemap, pages, and brand-focused copy.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 📌 This Week's Progress
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### ✅ Dashboard Layout
+- Completed the main dashboard structure.
+- Added a complete **sidebar** for navigation.
+- Added the dashboard **header/topbar**.
+- Added the **footer**.
+- Improved the overall dashboard UI and layout.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### ✅ Workspace Management
+- Added **New Workspace** creation.
+- Users can create a new workspace/project from the dashboard.
+- Projects/workspaces are displayed inside the dashboard.
+- Project information is connected with the application data flow.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### ✅ AI Assistant
+- Implemented the **SiteForge AI Assistant** as a chatbot-style interface.
+- Added an interactive business-profile setup flow.
+- Added multiple profile steps to collect important business information.
+- Added progress tracking during profile completion.
+- Added suggested AI actions such as:
+  - Generate Sitemap
+  - Generate Homepage
+  - Generate Services
+  - Generate FAQs
 
-## Learn More
+### ✅ Business Profile Form
+The chatbot collects information including:
 
-To learn more about Next.js, take a look at the following resources:
+- Business name
+- Business description
+- Industry
+- Location
+- Service area
+- Target customers
+- Products/services
+- Main website goals
+- Brand voice
+- Preferred language
+- Primary calls-to-action
+- Competitor references
+- Social links
+- Contact information
+- Existing brand colors
+- Image preferences
+- Required pages
+- Restricted claims
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### ✅ PostgreSQL Integration
+- Created the required business-profile database structure in PostgreSQL.
+- Business profile data entered through the chatbot is saved to PostgreSQL.
+- Project/workspace and business-profile data are connected.
+- Structured data is stored so it can later be used by the AI generation system.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### ✅ Drizzle ORM
+- Using **Drizzle ORM** for database interaction.
+- The application uses PostgreSQL as the main database.
+- Business-profile data will be retrieved through Drizzle when required by the AI generation workflow.
 
-## Deploy on Vercel
+## 🧠 AI Generation Workflow
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The planned architecture is:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+User
+  ↓
+Create Workspace
+  ↓
+AI Assistant
+  ↓
+Business Profile Form
+  ↓
+PostgreSQL
+  ↓
+Drizzle ORM
+  ↓
+Retrieve Business Data
+  ↓
+AI Generation Instructions
+  ↓
+Sitemap / Pages / Content / SEO
+  ↓
+Website Draft
+
+
+
+
