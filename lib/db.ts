@@ -1,7 +1,11 @@
-import postgres from "postgres";
+import { Pool } from 'pg';
 
-const sql = postgres(process.env.DATABASE_URL!, {
-  ssl: "require",
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
 });
 
-export default sql;
+// Query function export karo
+export const query = (text: string, params?: any[]) => pool.query(text, params);
+
+// Pool bhi export karo
+export default pool;

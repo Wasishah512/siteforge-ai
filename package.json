@@ -12,6 +12,7 @@
     "@hookform/resolvers": "^5.9.1",
     "better-auth": "^1.7.1",
     "cloudinary": "^2.10.1",
+    "drizzle-orm": "^0.45.2",
     "framer-motion": "^13.1.1",
     "lucide-react": "^1.33.0",
     "next": "16.3.2",
@@ -22,7 +23,8 @@
     "react-hook-form": "^7.86.0",
     "resend": "^6.24.0",
     "tailwind-merge": "^3.6.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -32,6 +34,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "tailwindcss": "^4",
