@@ -5,20 +5,22 @@ import { usePathname, useRouter } from "next/navigation";
 import { useProjectStore } from "./store/projectStore";
 
 const pageNames: Record<string, string> = {
-  "/dashboard": "Overview",
-  "/dashboard/projects": "Projects",
-  "/dashboard/content": "Content",
-  "/dashboard/analytics": "Analytics",
-  "/dashboard/business-profile": "Business profile",
-  "/dashboard/sitemap": "Site map",
-  "/dashboard/settings": "Settings",
-  "/dashboard/help": "Help center",
+  "/FrontEnd/Dashboard": "Overview",
+  "/FrontEnd/Dashboard/projectpage": "Projects",
+  "/FrontEnd/Dashboard/content": "Content",
+  "/FrontEnd/Dashboard/analytics": "Analytics",
+  "/FrontEnd/Dashboard/business-profile": "Business profile",
+  "/FrontEnd/Dashboard/sitemap": "Site map",
+  "/FrontEnd/Dashboard/settings": "Settings",
+  "/FrontEnd/Dashboard/help": "Help center",
 };
 
 export default function Topbar({
   onOpenMobileNav,
+  onOpenAssistant,
 }: {
   onOpenMobileNav: () => void;
+  onOpenAssistant?: () => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -40,12 +42,6 @@ export default function Topbar({
         <span>Workspace</span>
         <ChevronRight size={14} />
         <strong>{pageName}</strong>
-        {selectedProject && pageName === "Projects" && (
-          <>
-            <ChevronRight size={14} />
-            <span>{selectedProject.name}</span>
-          </>
-        )}
       </div>
 
       <div className="top-actions">
@@ -60,7 +56,13 @@ export default function Topbar({
 
         <button
           type="button"
-          onClick={() => router.push("/dashboard?assistant=open")}
+          onClick={() => {
+            if (onOpenAssistant) {
+              onOpenAssistant();
+            } else {
+              router.push("/FrontEnd/Dashboard?assistant=open");
+            }
+          }}
           className="ai-assistant-btn flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 hover:scale-105 shadow-lg shadow-indigo-500/30"
         >
           <Bot size={16} className="text-white" />

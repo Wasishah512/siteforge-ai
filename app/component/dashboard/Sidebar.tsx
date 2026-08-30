@@ -19,7 +19,7 @@ import { authClient } from "../../../lib/auth-client";
 import { useProjectStore } from "./store/projectStore";
 
 const navItems = [
-  { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
+  { label: "Overview", icon: LayoutDashboard, href: "/FrontEnd/Dashboard" },
   {
     label: "Projects",
     icon: FolderKanban,
@@ -102,9 +102,9 @@ export default function Sidebar({
 
           <button
             className={`nav-item ${
-              isActive("/dashboard/business-profile") ? "active" : ""
+              isActive("/FrontEnd/Dashboard/business-profile") ? "active" : ""
             }`}
-            onClick={() => navigate("/dashboard/business-profile")}
+            onClick={() => navigate("/FrontEnd/Dashboard/business-profile")}
           >
             <UserRound size={17} />
             <span>Business profile</span>
@@ -157,11 +157,26 @@ export default function Sidebar({
           </button>
 
           <div className="profile-row">
-            <div className="avatar">
-              {session?.user?.name?.charAt(0).toUpperCase() || "U"}
+            <div className="avatar w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-base flex-shrink-0 border-2 border-white/20">
+              {session?.user?.image ? (
+                <img
+                  src={session.user.image}
+                  alt={session.user.name || "User"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                session?.user?.name?.charAt(0).toUpperCase() || "U"
+              )}
             </div>
-            <div>
-              <p>{session?.user?.name || "User"}</p>
+            <div className="profile-info">
+              <p className="text-sm font-medium text-white">
+                {session?.user?.name || "User"}
+              </p>
+              {session?.user?.email && (
+                <span className="text-xs text-gray-400">
+                  {session.user.email}
+                </span>
+              )}
             </div>
           </div>
         </div>
