@@ -7,6 +7,7 @@ The platform collects business information through an interactive AI assistant, 
 ## 📌 This Week's Progress
 
 ### ✅ Dashboard Layout
+
 - Completed the main dashboard structure.
 - Added a complete **sidebar** for navigation.
 - Added the dashboard **header/topbar**.
@@ -14,12 +15,14 @@ The platform collects business information through an interactive AI assistant, 
 - Improved the overall dashboard UI and layout.
 
 ### ✅ Workspace Management
+
 - Added **New Workspace** creation.
 - Users can create a new workspace/project from the dashboard.
 - Projects/workspaces are displayed inside the dashboard.
 - Project information is connected with the application data flow.
 
 ### ✅ AI Assistant
+
 - Implemented the **SiteForge AI Assistant** as a chatbot-style interface.
 - Added an interactive business-profile setup flow.
 - Added multiple profile steps to collect important business information.
@@ -31,6 +34,7 @@ The platform collects business information through an interactive AI assistant, 
   - Generate FAQs
 
 ### ✅ Business Profile Form
+
 The chatbot collects information including:
 
 - Business name
@@ -53,19 +57,33 @@ The chatbot collects information including:
 - Restricted claims
 
 ### ✅ PostgreSQL Integration
+
 - Created the required business-profile database structure in PostgreSQL.
 - Business profile data entered through the chatbot is saved to PostgreSQL.
 - Project/workspace and business-profile data are connected.
 - Structured data is stored so it can later be used by the AI generation system.
 
 ### ✅ Drizzle ORM
+
 - Using **Drizzle ORM** for database interaction.
 - The application uses PostgreSQL as the main database.
 - Business-profile data will be retrieved through Drizzle when required by the AI generation workflow.
 
-## 🧠 AI Generation Workflow
+### ✅ AI Content Generation
 
-The planned architecture is:
+- Integrated **Groq AI** for website content generation.
+- Using `qwen/qwen3.8-27b` model for fast and reliable generation.
+- Generates complete website content including:
+  - Sitemap
+  - Pages with sections
+  - Services
+  - FAQs
+  - Metadata
+  - Image prompts
+  - Schema suggestions
+- Content saved to `ai_generation` table in PostgreSQL.
+
+## 🧠 AI Generation Workflow
 
 ```text
 User
@@ -87,7 +105,4 @@ AI Generation Instructions
 Sitemap / Pages / Content / SEO
   ↓
 Website Draft
-
-
-
-
+```
