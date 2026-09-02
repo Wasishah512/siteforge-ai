@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { query } from "@/lib/db";
+import { db } from "@/lib/db";
+import { sql } from "drizzle-orm";
 
 function generateSlug(name: string) {
   return name
@@ -16,14 +17,15 @@ export async function GET(request: NextRequest) {
     if (!workspaceId) {
       return NextResponse.json(
         { error: "workspaceId is required" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    const result = await query(
-      "SELECT * FROM project WHERE workspace_id = $1 ORDER BY created_at DESC",
-      [workspaceId],
-    );
+    const result = await db.execute(sql`
+      SELECT * FROM project 
+      WHERE workspace_id = ${workspaceId} 
+      ORDER BY created_at DESC
+    `);
 
     return NextResponse.json(result.rows);
   } catch (error) {
@@ -33,7 +35,7 @@ export async function GET(request: NextRequest) {
         error: "Failed to fetch projects",
         details: error instanceof Error ? error.message : "Unknown",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
@@ -48,7 +50,23 @@ export async function POST(request: NextRequest) {
     if (!workspaceId) {
       return NextResponse.json(
         { error: "Workspace ID is required" },
-        { status: 400 },
+        { status: 400 }
+      );
+    }
+
+    // Validate project type
+    const validTypes = [
+      "client_website",
+      "product_website",
+      "landing_page",
+      "campaign_website",
+      "industry_website"
+    ];
+    
+    if (!validTypes.includes(projectType)) {
+      return NextResponse.json(
+        { error: `Invalid project type. Must be one of: ${validTypes.join(", ")}` },
+        { status: 400 }
       );
     }
 
@@ -57,10 +75,10 @@ export async function POST(request: NextRequest) {
     let counter = 1;
 
     while (true) {
-      const existing = await query(
-        "SELECT id FROM project WHERE workspace_id = $1 AND slug = $2",
-        [workspaceId, slug],
-      );
+      const existing = await db.execute(sql`
+        SELECT id FROM project 
+        WHERE workspace_id = ${workspaceId} AND slug = ${slug}
+      `);
 
       if (existing.rows.length === 0) {
         break;
@@ -70,12 +88,19 @@ export async function POST(request: NextRequest) {
       counter += 1;
     }
 
-    const result = await query(
-      `INSERT INTO project (workspace_id, name, slug, type, status, progress, current_step)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [workspaceId, projectName, slug, projectType, "in_progress", 0, "business_profile"],
-    );
+    const result = await db.execute(sql`
+      INSERT INTO project (workspace_id, name, slug, type, status, progress, current_step)
+      VALUES (
+        ${workspaceId}, 
+        ${projectName}, 
+        ${slug}, 
+        ${projectType}, 
+        'draft', 
+        0, 
+        'business_profile'
+      )
+      RETURNING *
+    `);
 
     return NextResponse.json(result.rows[0], { status: 201 });
   } catch (error) {
@@ -85,7 +110,7 @@ export async function POST(request: NextRequest) {
         error: "Failed to create project",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

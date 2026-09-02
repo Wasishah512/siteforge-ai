@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
   FolderOpen,
@@ -26,6 +26,8 @@ export default function ProjectPage() {
     selectedProject,
     setSelectedProject,
     createProject,
+    fetchWorkspace,
+    fetchProjects,
     isLoading,
   } = useProjectStore();
 
@@ -36,6 +38,26 @@ export default function ProjectPage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectType, setNewProjectType] = useState("client_website");
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
+
+  // ✅ Load data on mount
+  useEffect(() => {
+    const loadData = async () => {
+      console.log("📥 Loading projects page...");
+
+      const workspaceData = await fetchWorkspace();
+      console.log("✅ Workspace:", workspaceData);
+
+      if (workspaceData?.id) {
+        await fetchProjects(workspaceData.id);
+        console.log(
+          "✅ Projects loaded:",
+          useProjectStore.getState().projects.length,
+        );
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Filter projects with safety checks
   const filteredProjects = projects.filter((project) => {
@@ -80,7 +102,12 @@ export default function ProjectPage() {
     // Ab project create karo
     const newProject = await createProject({
       name: newProjectName,
-      type: newProjectType,
+      type: newProjectType as
+        | "client_website"
+        | "product_website"
+        | "landing_page"
+        | "campaign_website"
+        | "industry_website",
       workspaceId: workspace.id,
     });
 
@@ -371,10 +398,10 @@ export default function ProjectPage() {
                   className="form-select"
                 >
                   <option value="client_website">Client Website</option>
-                  <option value="ecommerce">E-commerce</option>
+                  <option value="product_website">Product Website</option>
                   <option value="landing_page">Landing Page</option>
-                  <option value="portfolio">Portfolio</option>
-                  <option value="blog">Blog</option>
+                  <option value="campaign_website">Campaign Website</option>
+                  <option value="industry_website">Industry Website</option>
                 </select>
               </div>
             </div>

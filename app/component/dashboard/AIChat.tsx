@@ -6,15 +6,18 @@ import {
   Bot,
   Check,
   ChevronDown,
+  Loader2,
   PanelRight,
+  Pencil,
   Plus,
+  Save,
   Send,
   Sparkles,
   X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Updated Project type - all fields optional except name
+// Updated Project type
 type Project = {
   id?: string;
   name: string;
@@ -35,6 +38,7 @@ type Project = {
 type Message = {
   role: "assistant" | "user";
   text: string;
+  isLoading?: boolean;
 };
 
 export type FormData = {
@@ -58,6 +62,16 @@ export type FormData = {
   restrictedClaims: string;
 };
 
+type GeneratedContent = {
+  sitemap: any[];
+  pages: any[];
+  services: any[];
+  faqs: any[];
+  metadata: any;
+  schema_suggestions: any[];
+  image_prompts: any[];
+};
+
 type AIChatProps = {
   open: boolean;
   onClose: () => void;
@@ -69,6 +83,8 @@ type AIChatProps = {
   onSend: (text?: string) => void;
   onNotice: (message: string) => void;
   onComplete?: (data: FormData) => void;
+  onGenerationComplete?: (content: GeneratedContent) => void;
+  userId?: string;
 };
 
 const industries = [
@@ -123,7 +139,7 @@ const tagStyle =
 const labelStyle =
   "text-xs font-bold text-indigo-300 mb-1.5 flex items-center gap-1.5";
 
-// Reusable components defined OUTSIDE main component
+// Reusable components
 const ArrayInput = ({
   value,
   onChange,
@@ -307,10 +323,15 @@ export default function AIChat({
   onSend,
   onNotice,
   onComplete,
+  onGenerationComplete,
+  userId,
 }: AIChatProps) {
   const [setupMode, setSetupMode] = useState(true);
   const [step, setStep] = useState(1);
   const [isVisible, setIsVisible] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [savedProfile, setSavedProfile] = useState<any>(null);
 
   const [serviceInput, setServiceInput] = useState("");
   const [ctaInput, setCtaInput] = useState("");
@@ -464,12 +485,7 @@ export default function AIChat({
 
     if (step < TOTAL_STEPS) {
       setStep((current) => current + 1);
-      return;
     }
-
-    setSetupMode(false);
-    onComplete?.(formData);
-    onNotice("Business profile completed");
   };
 
   const previousStep = () => {
@@ -478,7 +494,166 @@ export default function AIChat({
     }
   };
 
+  // Save business profile
+  const handleSaveProfile = async () => {
+    try {
+      const response = await fetch("/api/business-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceId:
+            selectedProject?.workspace_id || selectedProject?.workspaceId,
+          projectId: selectedProject?.id,
+          ...formData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSavedProfile(data);
+        setSetupMode(false);
+        setIsEditing(false);
+        onComplete?.(formData);
+        onNotice("Business profile saved successfully");
+      } else {
+        onNotice(data.error || "Failed to save business profile");
+      }
+    } catch (error) {
+      console.error("Save profile error:", error);
+      onNotice("Failed to save business profile");
+    }
+  };
+
+  // Generate website content
+  const handleGenerateContent = async () => {
+    if (!selectedProject?.id || !userId) {
+      onNotice("Project ID and User ID are required");
+      return;
+    }
+    console.log("Generating website content for project:", selectedProject.id);
+    console.log("User ID:", userId);
+
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("/api/website-generation", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          projectId: selectedProject.id,
+          userId: userId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        onNotice("Website content generated successfully!");
+        onGenerationComplete?.(data.data.content);
+        onSend(
+          `Generated ${data.data.content.pages.length} pages, ${data.data.content.services.length} services, and ${data.data.content.faqs.length} FAQs successfully!`,
+        );
+      } else {
+        onNotice(data.error || "Failed to generate content");
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
+      onNotice("Failed to generate website content");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const progress = (step / TOTAL_STEPS) * 100;
+
+  // Saved Profile Summary Component
+  const SavedProfileSummary = () => (
+    <div className="rounded-2xl border-2 border-indigo-500/30 bg-indigo-500/10 p-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2">
+          <Check size={16} className="text-emerald-400" />
+          Business Profile Saved
+        </h3>
+        <button
+          type="button"
+          onClick={() => setIsEditing(true)}
+          className="flex items-center gap-1.5 rounded-lg border-2 border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-200 transition-all hover:border-indigo-400/50 hover:bg-indigo-500/20"
+        >
+          <Pencil size={12} />
+          Edit
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-start gap-2">
+          <span className="text-xs font-semibold text-indigo-300 w-24 shrink-0">
+            Name:
+          </span>
+          <span className="text-xs text-white">{formData.businessName}</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-xs font-semibold text-indigo-300 w-24 shrink-0">
+            Industry:
+          </span>
+          <span className="text-xs text-white">
+            {formData.industry || "N/A"}
+          </span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-xs font-semibold text-indigo-300 w-24 shrink-0">
+            Services:
+          </span>
+          <span className="text-xs text-white">
+            {formData.productsServices.join(", ") || "N/A"}
+          </span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="text-xs font-semibold text-indigo-300 w-24 shrink-0">
+            Pages:
+          </span>
+          <span className="text-xs text-white">
+            {formData.requiredPages.join(", ")}
+          </span>
+        </div>
+      </div>
+
+      {/* Generate Button */}
+      <button
+        type="button"
+        onClick={handleGenerateContent}
+        disabled={isGenerating}
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/50 transition-all hover:scale-[1.02] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 size={18} className="animate-spin" />
+            Generating Website Content...
+          </>
+        ) : (
+          <>
+            <Sparkles size={18} />
+            Generate Complete Website
+          </>
+        )}
+      </button>
+
+      {isGenerating && (
+        <div className="mt-3 space-y-2">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-indigo-500/20">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r from-indigo-500 to-purple-500" />
+          </div>
+          <p className="text-center text-[11px] text-indigo-300/70">
+            This may take a minute. Creating sitemap, pages, services, FAQs...
+          </p>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -502,7 +677,11 @@ export default function AIChat({
           <div className="flex items-center gap-3">
             <div className="relative">
               <span className="bot-avatar flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/50">
-                <Bot size={20} className="text-white" />
+                {isGenerating ? (
+                  <Loader2 size={20} className="text-white animate-spin" />
+                ) : (
+                  <Bot size={20} className="text-white" />
+                )}
               </span>
               <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#1a1a2e] bg-emerald-400" />
             </div>
@@ -511,7 +690,9 @@ export default function AIChat({
                 SiteForge Assistant
               </strong>
               <span className="mt-0.5 block text-xs text-indigo-300">
-                Your Website Copilot
+                {isGenerating
+                  ? "Generating content..."
+                  : "Your Website Copilot"}
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -541,14 +722,14 @@ export default function AIChat({
           </div>
         </div>
 
-        {setupMode ? (
+        {setupMode || isEditing ? (
           <>
             {/* SETUP CONTEXT */}
             <div className="border-b-2 border-indigo-500/30 bg-indigo-500/10 px-5 py-3">
               <div className="flex items-center gap-2 text-xs">
                 <Sparkles size={14} className="text-indigo-400" />
                 <span className="text-indigo-300">
-                  Setting up:{" "}
+                  {isEditing ? "Editing profile" : "Setting up"}:{" "}
                   <strong className="font-semibold text-white">
                     {selectedProject?.name ?? "New project"}
                   </strong>
@@ -565,32 +746,41 @@ export default function AIChat({
                   <Bot size={14} className="text-white" />
                 </span>
                 <div className="message-bubble rounded-2xl rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 px-4 py-3 text-sm text-white shadow-sm">
-                  {step === 1 &&
-                    "Let's start with the basics. Tell me about your business so I can create a website that fits your brand."}
-                  {step === 2 &&
+                  {isEditing
+                    ? "Update your business profile details below."
+                    : step === 1 &&
+                      "Let's start with the basics. Tell me about your business so I can create a website that fits your brand."}
+                  {!isEditing &&
+                    step === 2 &&
                     "Great. Now let's understand your market, location, and the people you want to reach."}
-                  {step === 3 &&
+                  {!isEditing &&
+                    step === 3 &&
                     "Now let's understand what you offer and what you want your website to achieve."}
-                  {step === 4 &&
+                  {!isEditing &&
+                    step === 4 &&
                     "Almost there. Let's define your brand style and the important details your website needs."}
                 </div>
               </div>
 
               {/* PROGRESS */}
-              <div className="mb-2 mt-6 flex items-center justify-between">
-                <span className="text-[10px] font-bold tracking-[0.12em] text-indigo-400">
-                  BUSINESS PROFILE · STEP {step} OF {TOTAL_STEPS}
-                </span>
-                <span className="text-[10px] font-bold text-indigo-400">
-                  {progress}%
-                </span>
-              </div>
-              <div className="mb-6 h-2 w-full overflow-hidden rounded-full bg-indigo-500/20">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
+              {!isEditing && (
+                <>
+                  <div className="mb-2 mt-6 flex items-center justify-between">
+                    <span className="text-[10px] font-bold tracking-[0.12em] text-indigo-400">
+                      BUSINESS PROFILE · STEP {step} OF {TOTAL_STEPS}
+                    </span>
+                    <span className="text-[10px] font-bold text-indigo-400">
+                      {progress}%
+                    </span>
+                  </div>
+                  <div className="mb-6 h-2 w-full overflow-hidden rounded-full bg-indigo-500/20">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* FORM */}
               <div className="flex animate-fade-in flex-col gap-4">
@@ -836,7 +1026,7 @@ export default function AIChat({
             {/* FOOTER */}
             <div className="border-t-2 border-indigo-500/30 bg-indigo-500/10 px-5 py-4">
               <div className="flex w-full gap-2">
-                {step > 1 && (
+                {step > 1 && !isEditing && (
                   <button
                     type="button"
                     onClick={previousStep}
@@ -846,14 +1036,34 @@ export default function AIChat({
                     <ArrowLeft size={16} />
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={nextStep}
-                  className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/50 transition-all hover:scale-[1.02] hover:opacity-90"
-                >
-                  {step === TOTAL_STEPS ? "Complete profile" : "Continue"}
-                  <ArrowUpRight size={16} />
-                </button>
+                {isEditing ? (
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/50 transition-all hover:scale-[1.02] hover:opacity-90"
+                  >
+                    <Save size={16} />
+                    Save Changes
+                  </button>
+                ) : step < TOTAL_STEPS ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/50 transition-all hover:scale-[1.02] hover:opacity-90"
+                  >
+                    Continue
+                    <ArrowUpRight size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/50 transition-all hover:scale-[1.02] hover:opacity-90"
+                  >
+                    <Save size={16} />
+                    Save Profile
+                  </button>
+                )}
               </div>
               <p className="mt-3 text-center text-[11px] text-indigo-300/70">
                 Your information is used to personalize your website generation.
@@ -878,26 +1088,20 @@ export default function AIChat({
 
             {/* MESSAGES */}
             <div className="messages min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              {/* ASSISTANT INTRO */}
               <div className="message-row assistant animate-fade-in">
                 <span className="mini-bot flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/50">
                   <Bot size={14} className="text-white" />
                 </span>
                 <div className="message-bubble rounded-2xl rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 px-4 py-3 text-sm text-white">
-                  Your business profile is ready. Now we can start building your
-                  website.
+                  Your business profile is saved. You can review it or generate
+                  your website content now.
                 </div>
               </div>
 
-              <div
-                className="message-row assistant mt-4 animate-fade-in"
-                style={{ animationDelay: "0.1s" }}
-              >
-                <span className="mini-bot flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/50">
-                  <Bot size={14} className="text-white" />
-                </span>
-                <div className="message-bubble rounded-2xl rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 px-4 py-3 text-sm text-white">
-                  What would you like to work on next?
-                </div>
+              {/* SAVED PROFILE SUMMARY */}
+              <div className="mt-4 animate-fade-in">
+                <SavedProfileSummary />
               </div>
 
               {/* SUGGESTIONS */}
@@ -955,7 +1159,14 @@ export default function AIChat({
                             : "rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 text-white"
                         }`}
                       >
-                        {message.text}
+                        {message.isLoading ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 size={14} className="animate-spin" />
+                            Generating...
+                          </div>
+                        ) : (
+                          message.text
+                        )}
                       </div>
                     </div>
                   ))}

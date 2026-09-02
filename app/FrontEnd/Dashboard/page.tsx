@@ -12,7 +12,7 @@ import AIChat from "../../component/dashboard/AIChat";
 import type { FormData } from "../../component/dashboard/AIChat";
 import { useProjectStore } from "../../component/dashboard/store/projectStore";
 import type { Project } from "../../component/dashboard/store/projectStore";
-
+import { authClient } from "../../../lib/auth-client";
 const steps = [
   { label: "Business profile", detail: "Your goals and audience", done: true },
   { label: "Site structure", detail: "Pages and navigation", done: true },
@@ -34,6 +34,7 @@ type Message = {
 export default function DashboardPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { data: session } = authClient.useSession();
 
   const {
     workspace,
@@ -41,6 +42,7 @@ export default function DashboardPage() {
     selectedProject,
     setSelectedProject,
     fetchWorkspace,
+    fetchProjects,
     createProject,
     updateProject,
     addProject,
@@ -58,11 +60,23 @@ export default function DashboardPage() {
     },
   ]);
 
-  // Fetch workspace on mount
+  // ✅ Load workspace and projects on mount
   useEffect(() => {
-    if (!workspace) {
-      fetchWorkspace();
-    }
+    const loadData = async () => {
+      console.log("📥 Loading dashboard data...");
+
+      // 1. Fetch workspace
+      const workspaceData = await fetchWorkspace();
+      console.log("✅ Workspace loaded:", workspaceData);
+
+      // 2. If workspace exists, fetch projects
+      if (workspaceData?.id) {
+        await fetchProjects(workspaceData.id);
+        console.log("✅ Projects loaded");
+      }
+    };
+
+    loadData();
   }, []);
 
   // Check URL for assistant=open
@@ -147,7 +161,7 @@ export default function DashboardPage() {
         if (currentProject?.id) {
           updateProject(currentProject.id, {
             progress: 25,
-            current_step: "site_structure",
+            current_step: "sitemap",
             status: "in_progress",
             updated: "Just now",
           });
@@ -218,6 +232,7 @@ export default function DashboardPage() {
         onSend={sendMessage}
         onNotice={showNotice}
         onComplete={handleProfileComplete}
+        userId={session?.user?.id}
       />
 
       {notice && <div className="toast">{notice}</div>}
