@@ -10,6 +10,7 @@ import {
   FolderKanban,
   Globe2,
   LayoutDashboard,
+  LogOut,
   Settings2,
   Sparkles,
   UserRound,
@@ -25,8 +26,12 @@ const navItems = [
     icon: FolderKanban,
     href: "/FrontEnd/Dashboard/projectpage",
   },
-  { label: "Content", icon: FileText, href: "/dashboard/content" },
-  { label: "Analytics", icon: BarChart3, href: "/dashboard/analytics" },
+  { label: "Content", icon: FileText, href: "/FrontEnd/Dashboard/content" },
+  {
+    label: "Analytics",
+    icon: BarChart3,
+    href: "/FrontEnd/Dashboard/analytics",
+  },
 ];
 
 export default function Sidebar({
@@ -49,6 +54,16 @@ export default function Sidebar({
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
     return pathname.startsWith(href);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authClient.signOut();
+      router.push("/FrontEnd/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return (
@@ -115,9 +130,9 @@ export default function Sidebar({
 
           <button
             className={`nav-item ${
-              isActive("/dashboard/sitemap") ? "active" : ""
+              isActive("/FrontEnd/Dashboard/sitemap") ? "active" : ""
             }`}
-            onClick={() => navigate("/dashboard/sitemap")}
+            onClick={() => navigate("/FrontEnd/Dashboard/sitemap")}
           >
             <Globe2 size={17} />
             <span>Site map</span>
@@ -125,9 +140,9 @@ export default function Sidebar({
 
           <button
             className={`nav-item ${
-              isActive("/dashboard/ai-assistant") ? "active" : ""
+              isActive("/FrontEnd/Dashboard/ai-assistant") ? "active" : ""
             }`}
-            onClick={() => router.push("/dashboard?assistant=open")}
+            onClick={() => router.push("/FrontEnd/Dashboard?assistant=open")}
           >
             <Bot size={17} />
             <span>AI assistant</span>
@@ -138,9 +153,9 @@ export default function Sidebar({
         <div className="sidebar-bottom">
           <button
             className={`nav-item ${
-              isActive("/dashboard/settings") ? "active" : ""
+              isActive("/FrontEnd/Dashboard/settings") ? "active" : ""
             }`}
-            onClick={() => navigate("/dashboard/settings")}
+            onClick={() => navigate("/FrontEnd/Dashboard/settings")}
           >
             <Settings2 size={17} />
             <span>Settings</span>
@@ -148,16 +163,26 @@ export default function Sidebar({
 
           <button
             className={`nav-item ${
-              isActive("/dashboard/help") ? "active" : ""
+              isActive("/FrontEnd/Dashboard/help") ? "active" : ""
             }`}
-            onClick={() => navigate("/dashboard/help")}
+            onClick={() => navigate("/FrontEnd/Dashboard/help")}
           >
             <CircleHelp size={17} />
             <span>Help center</span>
           </button>
 
-          <div className="profile-row">
-            <div className="avatar w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-base flex-shrink-0 border-2 border-white/20">
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="nav-item text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+          >
+            <LogOut size={17} />
+            <span>Logout</span>
+          </button>
+
+          {/* Profile Row */}
+          <div className="profile-row flex items-center gap-3 p-3 border-t border-white/10 mt-2">
+            <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-base flex-shrink-0 border-2 border-white/20">
               {session?.user?.image ? (
                 <img
                   src={session.user.image}
@@ -168,12 +193,12 @@ export default function Sidebar({
                 session?.user?.name?.charAt(0).toUpperCase() || "U"
               )}
             </div>
-            <div className="profile-info">
-              <p className="text-sm font-medium text-white">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
                 {session?.user?.name || "User"}
               </p>
               {session?.user?.email && (
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-400 truncate block">
                   {session.user.email}
                 </span>
               )}
