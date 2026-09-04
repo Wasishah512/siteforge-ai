@@ -2,10 +2,104 @@ import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
+import { generateCSS } from "@/lib/cssTemplate";
 
 const groq = new Groq({ 
   apiKey: process.env.GROQ_API_KEY || "" 
 });
+
+// Helper: Generate header
+async function generateHeader(colorScheme: any, businessName: string, pages: string[], currentPage: string): Promise<string> {
+  const prompt = `
+Generate header HTML for "${businessName}" website.
+Current page: ${currentPage}
+Pages: ${JSON.stringify(pages)}
+
+Use these classes:
+- container, site-header, site-logo, site-nav
+- Use <header class="site-header">
+
+Return ONLY <header> HTML. No explanations.
+`;
+
+  const response = await groq.chat.completions.create({
+    model: "qwen/qwen3.8-27b",
+    messages: [
+      { role: "system", content: "Generate header HTML with provided CSS classes." },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 300,
+  });
+
+  return response.choices[0]?.message?.content || "";
+}
+
+// Helper: Generate footer
+async function generateFooter(colorScheme: any, businessName: string, contactInfo: any): Promise<string> {
+  const prompt = `
+Generate footer HTML for "${businessName}" website.
+Contact: ${JSON.stringify(contactInfo)}
+
+Use these classes:
+- container, site-footer
+
+Return ONLY <footer> HTML. No explanations.
+`;
+
+  const response = await groq.chat.completions.create({
+    model: "qwen/qwen3.8-27b",
+    messages: [
+      { role: "system", content: "Generate footer HTML with provided CSS classes." },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 300,
+  });
+
+  return response.choices[0]?.message?.content || "";
+}
+
+// Helper: Generate section HTML
+async function generateSectionHTML(section: any, pageName: string): Promise<string> {
+  const prompt = `
+Generate HTML for "${section.section_type}" section on "${pageName}" page.
+
+Section Data:
+Heading: ${section.heading}
+Content: ${section.content}
+Button: ${section.button_text || "Learn More"}
+
+Use these CSS classes:
+- section, container, section-heading, btn, grid, card
+- For hero: class="hero"
+- For features: class="features"
+- For grids: class="grid grid-3"
+
+Example:
+<section class="hero">
+  <div class="container">
+    <h1>${section.heading}</h1>
+    <p>${section.content}</p>
+    <a href="#" class="btn">${section.button_text || "Learn More"}</a>
+  </div>
+</section>
+
+Return ONLY section HTML. No DOCTYPE, no html, no body.
+`;
+
+  const response = await groq.chat.completions.create({
+    model: "qwen/qwen3.8-27b",
+    messages: [
+      { role: "system", content: "Generate section HTML using provided CSS classes only." },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.3,
+    max_tokens: 400,
+  });
+
+  return response.choices[0]?.message?.content || "";
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,133 +157,41 @@ export async function POST(request: NextRequest) {
     const businessName = safeString(profile.business_name, "Business");
     const businessDescription = safeString(profile.business_description, "");
     const industry = safeString(profile.industry, "General");
-    const location = safeString(profile.location, "N/A");
-    const serviceArea = safeString(profile.service_area, "N/A");
     const brandVoice = safeString(profile.brand_voice, "Professional");
     const preferredLanguage = safeString(profile.preferred_language, "English");
-    const imagePreferences = safeString(profile.image_preferences, "Professional");
     const mainGoals = safeString(profile.main_goals, "Generate leads");
     const targetCustomers = safeString(profile.target_customers, "General audience");
     const restrictedClaims = safeString(profile.restricted_claims, "");
     
     const requiredPages = parseJsonArray(profile.required_pages, ['Home', 'About', 'Services', 'Contact']);
     const productsServices = parseJsonArray(profile.products_services, []);
-    const primaryCtas = parseJsonArray(profile.primary_ctas, []);
-    const competitorReferences = parseJsonArray(profile.competitor_references, []);
     const existingBrandColors = parseJsonArray(profile.existing_brand_colors, []);
-    const socialLinks = parseJsonObject(profile.social_links, {});
     const contactInformation = parseJsonObject(profile.contact_information, {});
 
     console.log("📦 Business:", businessName);
-    console.log("🎨 Brand Colors:", existingBrandColors);
-    console.log("📦 Pages:", requiredPages);
 
-    // Color scheme logic
-    let colorPrompt = "";
-    if (existingBrandColors.length > 0) {
-      colorPrompt = `
-EXISTING BRAND COLORS: ${JSON.stringify(existingBrandColors)}
-Use these as primary colors. Generate complementary background, text, and heading colors that work well with these brand colors.
-`;
-    } else {
-      colorPrompt = `
-Generate a professional color scheme based on this industry: ${industry}
-- Fashion/Clothing: Elegant colors (gold, black, white, beige)
-- Tech/Software: Modern colors (blue, purple, indigo)
-- Food/Restaurant: Warm colors (red, orange, brown, cream)
-- Healthcare: Trust colors (blue, teal, white)
-- Real Estate: Professional colors (navy, gold, white)
-- Education: Trust colors (blue, green, white)
-- Finance: Secure colors (dark blue, green, white)
-`;
-    }
+    // ============ CHUNK 1: CONTENT ============
+    const contentPrompt = `
+Generate content for ${businessName} (${industry}).
 
-    // Build complete prompt
-    const prompt = `
-Generate a complete website content package for this business:
+Business: ${businessDescription}
+Pages: ${JSON.stringify(requiredPages)}
+Services: ${JSON.stringify(productsServices)}
+Brand voice: ${brandVoice}
+Language: ${preferredLanguage}
 
-=== BUSINESS INFO ===
-Name: ${businessName}
-Description: ${businessDescription}
-Industry: ${industry}
-Location: ${location}
-Service Area: ${serviceArea}
-Target Customers: ${targetCustomers}
-Main Goals: ${mainGoals}
-Brand Voice: ${brandVoice}
-Preferred Language: ${preferredLanguage}
-
-=== SERVICES ===
-${JSON.stringify(productsServices)}
-
-=== PAGES NEEDED ===
-${JSON.stringify(requiredPages)}
-
-=== CTAs ===
-${JSON.stringify(primaryCtas)}
-
-=== COMPETITORS ===
-${JSON.stringify(competitorReferences)}
-
-=== CONTACT INFO ===
-${JSON.stringify(contactInformation)}
-
-=== SOCIAL LINKS ===
-${JSON.stringify(socialLinks)}
-
-=== ${colorPrompt} ===
-
-=== RESTRICTED CLAIMS (AVOID THESE) ===
-${restrictedClaims || "None"}
-
-Return JSON with this EXACT structure:
+Return JSON with ALL pages:
 {
-  "sitemap": [
-    {"page_name": "Home", "slug": "home", "parent_page": null, "order": 1}
-  ],
   "pages": [
     {
       "page_name": "Home",
-      "title": "SEO Title (60 chars max)",
-      "meta_description": "SEO description (150 chars max)",
+      "title": "SEO Title",
+      "meta_description": "SEO description",
       "sections": [
-        {
-          "section_type": "hero",
-          "heading": "Compelling heading",
-          "content": "Supporting content"
-        },
-        {
-          "section_type": "featured_products_or_services",
-          "heading": "Section heading",
-          "content": "Section content"
-        },
-        {
-          "section_type": "cta",
-          "heading": "Call to action heading",
-          "content": "Call to action text"
-        }
+        {"section_type": "hero", "heading": "Heading", "content": "Content", "button_text": "Button"}
       ]
     }
   ],
-  "services": [
-    {
-      "service_name": "Service name",
-      "description": "Service description",
-      "features": ["Feature 1", "Feature 2", "Feature 3"]
-    }
-  ],
-  "faqs": [
-    {
-      "question": "Common question?",
-      "answer": "Helpful answer",
-      "category": "general | shipping | payment | returns | product"
-    }
-  ],
-  "metadata": {
-    "site_title": "${businessName} | ${industry}",
-    "site_description": "${businessDescription.slice(0, 150)}",
-    "keywords": ["keyword1", "keyword2", "keyword3", "keyword4", "keyword5"]
-  },
   "color_scheme": {
     "primary_color": "#HEX",
     "secondary_color": "#HEX",
@@ -204,135 +206,125 @@ Return JSON with this EXACT structure:
     "button_hover_color": "#HEX",
     "link_color": "#HEX",
     "border_color": "#HEX",
-    "success_color": "#HEX",
-    "error_color": "#HEX",
-    "font_family": "Font family name (e.g., Inter, Poppins, Playfair Display)",
+    "font_family": "Inter",
     "font_size_base": "16px",
     "font_size_small": "14px",
     "font_size_heading": "32px",
     "font_size_large": "48px",
-    "border_radius": "8px",
-    "spacing_unit": "8px"
-  },
-  "image_prompts": [
-    {
-      "page": "Home",
-      "section": "hero",
-      "prompt": "Detailed image generation prompt",
-      "style": "${imagePreferences}"
-    }
-  ],
-  "schema_suggestions": [
-    {
-      "schema_type": "LocalBusiness | Product | FAQPage | Organization",
-      "data": {}
-    }
-  ]
+    "border_radius": "8px"
+  }
 }
-
-IMPORTANT RULES:
-1. Return ONLY valid JSON, no markdown, no explanations
-2. Generate content in ${preferredLanguage}
-3. Use brand voice: ${brandVoice}
-4. Every page must have hero section and CTA section
-5. Write SEO-friendly titles and descriptions
-6. FAQ answers should be helpful and specific
-7. Colors should work well together and be accessible
-8. Keywords should be relevant to ${industry} and ${location}
 `;
 
-    console.log("📝 Calling Groq API...");
-
-    const response = await groq.chat.completions.create({
+    const contentResponse = await groq.chat.completions.create({
       model: "qwen/qwen3.8-27b",
       messages: [
-        {
-          role: "system",
-          content: `You are a professional website content generator and designer. 
-          You create complete website packages including content, SEO, and design systems.
-          ALWAYS return valid JSON only.
-          No markdown, no explanations, just JSON.
-          Focus on creating high-converting, user-friendly content.`
-        },
-        { role: "user", content: prompt }
+        { role: "system", content: "Return ONLY valid JSON with ALL pages." },
+        { role: "user", content: contentPrompt }
       ],
       temperature: 0.7,
-      max_tokens: 6000,
+      max_tokens: 900,
       response_format: { type: "json_object" }
     });
 
-    console.log("✅ Response received");
+    const contentText = contentResponse.choices[0]?.message?.content || '{}';
+    const content = JSON.parse(contentText.replace(/```json/g, '').replace(/```/g, '').trim());
 
-    const contentText = response.choices[0]?.message?.content || '{}';
-    
-    const cleanedText = contentText
-      .replace(/```json/g, '')
-      .replace(/```/g, '')
-      .trim();
+    console.log("✅ Content generated");
+    console.log("📊 Pages:", content.pages?.length || 0);
 
-    let content;
-    try {
-      content = JSON.parse(cleanedText);
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      console.log("Raw text:", contentText.slice(0, 500));
-      throw new Error("Failed to parse generated content");
+    // ============ CSS (Pre-built) ============
+    const css = generateCSS(content.color_scheme);
+    console.log("✅ CSS generated from template");
+
+    // ============ HTML PER PAGE ============
+    const pageNames = content.pages.map((p: any) => p.page_name);
+    const previewHtml: Record<string, string> = {};
+
+    for (const page of content.pages) {
+      console.log(`📄 Generating: ${page.page_name}`);
+
+      const header = await generateHeader(
+        content.color_scheme,
+        businessName,
+        pageNames,
+        page.page_name,
+      );
+
+      const footer = await generateFooter(
+        content.color_scheme,
+        businessName,
+        contactInformation,
+      );
+
+      const sectionsHtml: string[] = [];
+      for (const section of page.sections) {
+        const sectionHtml = await generateSectionHTML(section, page.page_name);
+        if (sectionHtml && !sectionHtml.includes("```html")) {
+          sectionsHtml.push(sectionHtml);
+        }
+      }
+
+      const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="${page.meta_description || ''}">
+  <title>${page.title || page.page_name}</title>
+  <style>${css}</style>
+</head>
+<body>
+  ${header}
+  <main>
+    ${sectionsHtml.join('\n')}
+  </main>
+  ${footer}
+</body>
+</html>`;
+
+      previewHtml[page.page_name] = fullHtml;
+      console.log(`✅ ${page.page_name} completed`);
     }
 
-    console.log("📊 Pages:", content.pages?.length || 0);
-    console.log("📊 Services:", content.services?.length || 0);
-    console.log("📊 FAQs:", content.faqs?.length || 0);
-    console.log("🎨 Color Scheme:", content.color_scheme ? "✅" : "❌");
+    // ============ SAVE ============
+    const finalContent = {
+      ...content,
+      preview_html: previewHtml,
+      css: css,
+    };
 
-    // Save to database
     await db.execute(sql`
       INSERT INTO ai_generation (
         project_id, user_id, type, input, output, model, tokens_used, status
       ) VALUES (
         ${projectId}, ${userId}, 'website_generation',
-        ${JSON.stringify({ 
-          profile: {
-            business_name: businessName,
-            industry: industry,
-            pages: requiredPages,
-            services: productsServices,
-            colors: existingBrandColors
-          }
-        })}::jsonb,
-        ${JSON.stringify(content)}::jsonb,
+        ${JSON.stringify({ profile: { business_name: businessName, industry } })}::jsonb,
+        ${JSON.stringify(finalContent)}::jsonb,
         'qwen3.8-27b', 0, 'draft'
       )
     `);
 
     console.log("✅ Saved to database");
 
-    // Update project progress
     await db.execute(sql`
       UPDATE project SET 
-        progress = 50, 
+        progress = 60, 
         current_step = 'content',
-        status = 'in_progress',
-        updated_at = NOW()
+        status = 'in_progress'
       WHERE id = ${projectId}
     `);
 
     return NextResponse.json({
       success: true,
-      message: "Website content generated successfully",
-      data: { 
-        content,
-        colorScheme: content.color_scheme 
-      },
+      message: "Website generated successfully",
+      data: { content: finalContent, previewHtml },
     });
 
   } catch (error) {
     console.error("❌ Error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: "Failed to generate",
-        details: error instanceof Error ? error.message : "Unknown error"
-      },
+      { success: false, error: "Failed to generate", details: error instanceof Error ? error.message : "Unknown" },
       { status: 500 }
     );
   }
