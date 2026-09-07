@@ -553,10 +553,28 @@ export default function AIChat({
       const data = await response.json();
 
       if (data.success) {
-        onNotice("Website content generated successfully!");
+        // Safe access with fallback
+        const pagesCount =
+          data?.data?.pagesCount || data?.data?.content?.pages?.length || 0;
+        const servicesCount =
+          data?.data?.servicesCount ||
+          data?.data?.content?.services?.length ||
+          0;
+        const faqsCount =
+          data?.data?.faqsCount || data?.data?.content?.faqs?.length || 0;
+
+        console.log(
+          `✅ Generated: ${pagesCount} pages, ${servicesCount} services, ${faqsCount} FAQs`,
+        );
+
+        onNotice(
+          `Website generated: ${pagesCount} pages, ${servicesCount} services, ${faqsCount} FAQs`,
+        );
+
         onGenerationComplete?.(data.data.content);
+
         onSend(
-          `Generated ${data.data.content.pages.length} pages, ${data.data.content.services.length} services, and ${data.data.content.faqs.length} FAQs successfully!`,
+          `Generated ${pagesCount} pages, ${servicesCount} services, and ${faqsCount} FAQs with color scheme and SEO metadata successfully!`,
         );
       } else {
         onNotice(data.error || "Failed to generate content");

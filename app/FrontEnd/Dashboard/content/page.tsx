@@ -18,6 +18,7 @@ import {
   Eye,
   Sparkles,
   Palette,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProjectStore } from "../../../component/dashboard/store/projectStore";
@@ -31,8 +32,19 @@ export default function ContentPage() {
   const [activePage, setActivePage] = useState("Home");
   const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Edit states
   const [editingSection, setEditingSection] = useState<number | null>(null);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingColor, setEditingColor] = useState(false);
+  const [colorPrompt, setColorPrompt] = useState("");
+  const [editingFAQ, setEditingFAQ] = useState<number | null>(null);
+  const [faqPrompt, setFaqPrompt] = useState("");
+  const [editingSEO, setEditingSEO] = useState(false);
+  const [seoPrompt, setSeoPrompt] = useState("");
+  const [editingService, setEditingService] = useState<number | null>(null);
+  const [servicePrompt, setServicePrompt] = useState("");
 
   useEffect(() => {
     if (selectedProject?.id) {
@@ -66,6 +78,57 @@ export default function ContentPage() {
       setContent(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // AI Edit API call
+  const handleAIEdit = async (
+    editType: string,
+    prompt: string,
+    targetData: any,
+  ) => {
+    setIsEditing(true);
+    try {
+      const response = await fetch("/api/edit-content", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: selectedProject?.id,
+          editType, // section | color | faq | seo | service
+          prompt,
+          targetData,
+          currentContent: content,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to edit");
+      }
+
+      const data = await response.json();
+
+      // Content update karo
+      setContent(data.updatedContent);
+
+      // Edit states reset karo
+      setEditingSection(null);
+      setEditingColor(false);
+      setEditingFAQ(null);
+      setEditingSEO(false);
+      setEditingService(null);
+      setAiPrompt("");
+      setColorPrompt("");
+      setFaqPrompt("");
+      setSeoPrompt("");
+      setServicePrompt("");
+
+      alert("Content updated successfully!");
+    } catch (error) {
+      console.error("Edit error:", error);
+      alert(error instanceof Error ? error.message : "Failed to edit");
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -167,7 +230,6 @@ export default function ContentPage() {
             />
           </div>
 
-          {/* Preview Button */}
           <button
             onClick={() => router.push("/FrontEnd/Dashboard/preview")}
             style={{
@@ -309,7 +371,6 @@ export default function ContentPage() {
                     {section.section_type.replace(/_/g, " ")}
                   </span>
 
-                  {/* Edit with AI Button */}
                   <button
                     onClick={() => {
                       setEditingSection(
@@ -355,7 +416,6 @@ export default function ContentPage() {
                   {section.content}
                 </p>
 
-                {/* AI Prompt Field */}
                 {editingSection === index && (
                   <div
                     style={{
@@ -385,6 +445,13 @@ export default function ContentPage() {
                     />
                     <div style={{ display: "flex", gap: "0.5rem" }}>
                       <button
+                        onClick={() =>
+                          handleAIEdit("section", aiPrompt, {
+                            pageName: activePage,
+                            sectionIndex: index,
+                          })
+                        }
+                        disabled={isEditing || !aiPrompt.trim()}
                         style={{
                           flex: 1,
                           padding: "0.5rem",
@@ -394,15 +461,16 @@ export default function ContentPage() {
                           borderRadius: "0.5rem",
                           color: "white",
                           fontWeight: 600,
-                          cursor: "pointer",
+                          cursor: isEditing ? "not-allowed" : "pointer",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                           gap: "0.25rem",
+                          opacity: isEditing ? 0.5 : 1,
                         }}
                       >
                         <Sparkles size={14} />
-                        Apply AI Edit
+                        {isEditing ? "Editing..." : "Apply AI Edit"}
                       </button>
                       <button
                         onClick={() => setEditingSection(null)}
@@ -444,18 +512,47 @@ export default function ContentPage() {
                 border: "1px solid rgba(255,255,255,0.1)",
                 borderRadius: "1rem",
                 padding: "1.5rem",
+                position: "relative",
               }}
             >
-              <h3
+              <div
                 style={{
-                  color: "white",
-                  fontSize: "1.125rem",
-                  fontWeight: 600,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
                   marginBottom: "0.5rem",
                 }}
               >
-                {service.service_name}
-              </h3>
+                <h3
+                  style={{
+                    color: "white",
+                    fontSize: "1.125rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {service.service_name}
+                </h3>
+                <button
+                  onClick={() => {
+                    setEditingService(editingService === index ? null : index);
+                    setServicePrompt("");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.25rem",
+                    padding: "0.25rem 0.5rem",
+                    background: "rgba(99,102,241,0.15)",
+                    border: "1px solid rgba(99,102,241,0.3)",
+                    borderRadius: "0.5rem",
+                    color: "#a5b4fc",
+                    fontSize: "0.7rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Edit3 size={12} />
+                </button>
+              </div>
               <p
                 style={{
                   color: "#9ca3af",
@@ -490,6 +587,70 @@ export default function ContentPage() {
                   </li>
                 ))}
               </ul>
+
+              {editingService === index && (
+                <div
+                  style={{
+                    marginTop: "1rem",
+                    padding: "1rem",
+                    background: "rgba(0,0,0,0.3)",
+                    borderRadius: "0.75rem",
+                  }}
+                >
+                  <textarea
+                    value={servicePrompt}
+                    onChange={(e) => setServicePrompt(e.target.value)}
+                    placeholder="Edit this service..."
+                    style={{
+                      width: "100%",
+                      minHeight: "50px",
+                      padding: "0.75rem",
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "0.5rem",
+                      color: "white",
+                      outline: "none",
+                      fontSize: "0.875rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button
+                      onClick={() =>
+                        handleAIEdit("service", servicePrompt, {
+                          serviceIndex: index,
+                        })
+                      }
+                      disabled={isEditing}
+                      style={{
+                        flex: 1,
+                        padding: "0.5rem",
+                        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                        border: "none",
+                        borderRadius: "0.5rem",
+                        color: "white",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {isEditing ? "Editing..." : "Apply"}
+                    </button>
+                    <button
+                      onClick={() => setEditingService(null)}
+                      style={{
+                        padding: "0.5rem 1rem",
+                        background: "rgba(255,255,255,0.1)",
+                        border: "none",
+                        borderRadius: "0.5rem",
+                        color: "white",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -515,33 +676,68 @@ export default function ContentPage() {
                 overflow: "hidden",
               }}
             >
-              <button
-                onClick={() =>
-                  setExpandedFaq(
-                    expandedFaq === faq.question ? null : faq.question,
-                  )
-                }
+              <div
                 style={{
                   display: "flex",
-                  justifyContent: "space-between",
                   alignItems: "center",
-                  width: "100%",
                   padding: "1rem 1.25rem",
-                  color: "white",
-                  fontWeight: 500,
-                  textAlign: "left",
-                  cursor: "pointer",
-                  border: "none",
-                  background: "transparent",
                 }}
               >
-                <span>{faq.question}</span>
-                {expandedFaq === faq.question ? (
-                  <ChevronUp size={18} />
-                ) : (
-                  <ChevronDown size={18} />
-                )}
-              </button>
+                <button
+                  onClick={() =>
+                    setExpandedFaq(
+                      expandedFaq === faq.question ? null : faq.question,
+                    )
+                  }
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flex: 1,
+                    color: "white",
+                    fontWeight: 500,
+                    textAlign: "left",
+                    cursor: "pointer",
+                    border: "none",
+                    background: "transparent",
+                  }}
+                >
+                  <span>{faq.question}</span>
+                </button>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setEditingFAQ(editingFAQ === index ? null : index);
+                      setFaqPrompt("");
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.25rem",
+                      padding: "0.25rem 0.5rem",
+                      background: "rgba(99,102,241,0.15)",
+                      border: "1px solid rgba(99,102,241,0.3)",
+                      borderRadius: "0.5rem",
+                      color: "#a5b4fc",
+                      fontSize: "0.7rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <Edit3 size={12} />
+                  </button>
+                  {expandedFaq === faq.question ? (
+                    <ChevronUp size={18} />
+                  ) : (
+                    <ChevronDown size={18} />
+                  )}
+                </div>
+              </div>
               {expandedFaq === faq.question && (
                 <div
                   style={{
@@ -574,6 +770,67 @@ export default function ContentPage() {
                   </p>
                 </div>
               )}
+
+              {editingFAQ === index && (
+                <div
+                  style={{
+                    padding: "1rem 1.25rem",
+                    borderTop: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(0,0,0,0.3)",
+                  }}
+                >
+                  <textarea
+                    value={faqPrompt}
+                    onChange={(e) => setFaqPrompt(e.target.value)}
+                    placeholder="Edit this FAQ..."
+                    style={{
+                      width: "100%",
+                      minHeight: "50px",
+                      padding: "0.75rem",
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "0.5rem",
+                      color: "white",
+                      outline: "none",
+                      fontSize: "0.875rem",
+                      marginBottom: "0.5rem",
+                    }}
+                  />
+                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <button
+                      onClick={() =>
+                        handleAIEdit("faq", faqPrompt, { faqIndex: index })
+                      }
+                      disabled={isEditing}
+                      style={{
+                        flex: 1,
+                        padding: "0.5rem",
+                        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                        border: "none",
+                        borderRadius: "0.5rem",
+                        color: "white",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {isEditing ? "Editing..." : "Apply"}
+                    </button>
+                    <button
+                      onClick={() => setEditingFAQ(null)}
+                      style={{
+                        padding: "0.5rem 1rem",
+                        background: "rgba(255,255,255,0.1)",
+                        border: "none",
+                        borderRadius: "0.5rem",
+                        color: "white",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -590,20 +847,50 @@ export default function ContentPage() {
             padding: "1.5rem",
           }}
         >
-          <h2
+          <div
             style={{
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: "0.5rem",
-              color: "white",
-              fontSize: "1.125rem",
-              fontWeight: 600,
               marginBottom: "1rem",
             }}
           >
-            <Tag size={18} />
-            SEO Keywords
-          </h2>
+            <h2
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "white",
+                fontSize: "1.125rem",
+                fontWeight: 600,
+              }}
+            >
+              <Tag size={18} />
+              SEO Keywords
+            </h2>
+            <button
+              onClick={() => {
+                setEditingSEO(!editingSEO);
+                setSeoPrompt("");
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.25rem 0.75rem",
+                background: "rgba(99,102,241,0.15)",
+                border: "1px solid rgba(99,102,241,0.3)",
+                borderRadius: "0.5rem",
+                color: "#a5b4fc",
+                fontSize: "0.75rem",
+                cursor: "pointer",
+              }}
+            >
+              <Edit3 size={12} />
+              Edit with AI
+            </button>
+          </div>
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
             {content.metadata.keywords.map((keyword: string, index: number) => (
               <span
@@ -621,10 +908,70 @@ export default function ContentPage() {
               </span>
             ))}
           </div>
+
+          {editingSEO && (
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "1rem",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: "0.75rem",
+              }}
+            >
+              <textarea
+                value={seoPrompt}
+                onChange={(e) => setSeoPrompt(e.target.value)}
+                placeholder="Improve SEO keywords..."
+                style={{
+                  width: "100%",
+                  minHeight: "50px",
+                  padding: "0.75rem",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "0.5rem",
+                  color: "white",
+                  outline: "none",
+                  fontSize: "0.875rem",
+                  marginBottom: "0.5rem",
+                }}
+              />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={() => handleAIEdit("seo", seoPrompt, {})}
+                  disabled={isEditing}
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    color: "white",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {isEditing ? "Editing..." : "Apply AI Edit"}
+                </button>
+                <button
+                  onClick={() => setEditingSEO(false)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "rgba(255,255,255,0.1)",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Color Scheme Section */}
+      {/* Color Scheme */}
       {content.color_scheme && (
         <div
           style={{
@@ -635,20 +982,50 @@ export default function ContentPage() {
             padding: "1.5rem",
           }}
         >
-          <h2
+          <div
             style={{
               display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              gap: "0.5rem",
-              color: "white",
-              fontSize: "1.125rem",
-              fontWeight: 600,
               marginBottom: "1rem",
             }}
           >
-            <Palette size={18} />
-            Color Scheme
-          </h2>
+            <h2
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                color: "white",
+                fontSize: "1.125rem",
+                fontWeight: 600,
+              }}
+            >
+              <Palette size={18} />
+              Color Scheme
+            </h2>
+            <button
+              onClick={() => {
+                setEditingColor(!editingColor);
+                setColorPrompt("");
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.25rem",
+                padding: "0.25rem 0.75rem",
+                background: "rgba(99,102,241,0.15)",
+                border: "1px solid rgba(99,102,241,0.3)",
+                borderRadius: "0.5rem",
+                color: "#a5b4fc",
+                fontSize: "0.75rem",
+                cursor: "pointer",
+              }}
+            >
+              <Edit3 size={12} />
+              Edit with AI
+            </button>
+          </div>
+
           <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
             {Object.entries(content.color_scheme)
               .filter(([key]) => key.includes("color"))
@@ -691,6 +1068,66 @@ export default function ContentPage() {
                 </div>
               ))}
           </div>
+
+          {editingColor && (
+            <div
+              style={{
+                marginTop: "1rem",
+                padding: "1rem",
+                background: "rgba(0,0,0,0.3)",
+                borderRadius: "0.75rem",
+              }}
+            >
+              <textarea
+                value={colorPrompt}
+                onChange={(e) => setColorPrompt(e.target.value)}
+                placeholder="Example: Make colors more elegant, use blue theme..."
+                style={{
+                  width: "100%",
+                  minHeight: "50px",
+                  padding: "0.75rem",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "0.5rem",
+                  color: "white",
+                  outline: "none",
+                  fontSize: "0.875rem",
+                  marginBottom: "0.5rem",
+                }}
+              />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={() => handleAIEdit("color", colorPrompt, {})}
+                  disabled={isEditing}
+                  style={{
+                    flex: 1,
+                    padding: "0.5rem",
+                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    color: "white",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {isEditing ? "Editing..." : "Apply AI Edit"}
+                </button>
+                <button
+                  onClick={() => setEditingColor(false)}
+                  style={{
+                    padding: "0.5rem 1rem",
+                    background: "rgba(255,255,255,0.1)",
+                    border: "none",
+                    borderRadius: "0.5rem",
+                    color: "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
