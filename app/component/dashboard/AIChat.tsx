@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-// Updated Project type
 type Project = {
   id?: string;
   name: string;
@@ -139,7 +138,6 @@ const tagStyle =
 const labelStyle =
   "text-xs font-bold text-indigo-300 mb-1.5 flex items-center gap-1.5";
 
-// Reusable components
 const ArrayInput = ({
   value,
   onChange,
@@ -332,6 +330,7 @@ export default function AIChat({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [savedProfile, setSavedProfile] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   const [serviceInput, setServiceInput] = useState("");
   const [ctaInput, setCtaInput] = useState("");
@@ -364,22 +363,96 @@ export default function AIChat({
     if (open) {
       setIsVisible(true);
     } else {
-      const timer = setTimeout(() => {
-        setIsVisible(false);
-      }, 300);
+      const timer = setTimeout(() => setIsVisible(false), 300);
       return () => clearTimeout(timer);
     }
   }, [open]);
 
-  if (!open && !isVisible) {
-    return null;
-  }
+  // ✅ Business profile auto-load
+  useEffect(() => {
+    if (open && selectedProject?.id) {
+      fetchBusinessProfile(selectedProject.id);
+    }
+  }, [open, selectedProject]);
+
+  const fetchBusinessProfile = async (projectId: string) => {
+    setIsLoadingProfile(true);
+    try {
+      const response = await fetch(
+        `/api/business-profile?projectId=${projectId}`,
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+
+        if (data && data.length > 0) {
+          const profile = data[0];
+
+          const parseArray = (value: any): string[] => {
+            if (!value) return [];
+            if (Array.isArray(value)) return value;
+            if (typeof value === "string") {
+              try {
+                return JSON.parse(value);
+              } catch {
+                return [];
+              }
+            }
+            return [];
+          };
+
+          setFormData({
+            businessName: profile.business_name || "",
+            businessDescription: profile.business_description || "",
+            industry: profile.industry || "",
+            location: profile.location || "",
+            serviceArea: profile.service_area || "",
+            targetCustomers: profile.target_customers || "",
+            productsServices: parseArray(profile.products_services),
+            mainGoals: profile.main_goals || "",
+            brandVoice: profile.brand_voice || "Professional",
+            preferredLanguage: profile.preferred_language || "English",
+            primaryCTAs: parseArray(profile.primary_ctas),
+            competitorReferences: parseArray(profile.competitor_references),
+            socialLinks:
+              typeof profile.social_links === "object"
+                ? JSON.stringify(profile.social_links)
+                : profile.social_links || "",
+            contactInformation:
+              typeof profile.contact_information === "object"
+                ? JSON.stringify(profile.contact_information)
+                : profile.contact_information || "",
+            existingBrandColors: parseArray(profile.existing_brand_colors),
+            imagePreferences: profile.image_preferences || "",
+            requiredPages:
+              parseArray(profile.required_pages).length > 0
+                ? parseArray(profile.required_pages)
+                : defaultPages,
+            restrictedClaims: profile.restricted_claims || "",
+          });
+
+          setSetupMode(false);
+          setSavedProfile(profile);
+          console.log("✅ Business profile loaded");
+        } else {
+          setSetupMode(true);
+          setStep(1);
+          console.log("ℹ️ No business profile found");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+      setSetupMode(true);
+      setStep(1);
+    } finally {
+      setIsLoadingProfile(false);
+    }
+  };
+
+  if (!open && !isVisible) return null;
 
   const updateField = (field: keyof FormData, value: string | string[]) => {
-    setFormData((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setFormData((current) => ({ ...current, [field]: value }));
   };
 
   const addToArray = (
@@ -411,7 +484,7 @@ export default function AIChat({
   ) => {
     setFormData((current) => ({
       ...current,
-      [field]: current[field].filter((value) => value !== item),
+      [field]: current[field].filter((v) => v !== item),
     }));
   };
 
@@ -419,22 +492,18 @@ export default function AIChat({
     addToArray("productsServices", serviceInput);
     setServiceInput("");
   };
-
   const addCTA = () => {
     addToArray("primaryCTAs", ctaInput);
     setCtaInput("");
   };
-
   const addCompetitor = () => {
     addToArray("competitorReferences", competitorInput);
     setCompetitorInput("");
   };
-
   const addColor = () => {
     addToArray("existingBrandColors", colorInput);
     setColorInput("");
   };
-
   const addPage = () => {
     addToArray("requiredPages", pageInput);
     setPageInput("");
@@ -452,7 +521,6 @@ export default function AIChat({
       }
       return true;
     }
-
     if (step === 2) {
       if (!formData.industry) {
         onNotice("Please select your industry");
@@ -464,7 +532,6 @@ export default function AIChat({
       }
       return true;
     }
-
     if (step === 3) {
       if (formData.productsServices.length === 0) {
         onNotice("Please add at least one product or service");
@@ -476,32 +543,23 @@ export default function AIChat({
       }
       return true;
     }
-
     return true;
   };
 
   const nextStep = () => {
     if (!validateCurrentStep()) return;
-
-    if (step < TOTAL_STEPS) {
-      setStep((current) => current + 1);
-    }
+    if (step < TOTAL_STEPS) setStep((current) => current + 1);
   };
 
   const previousStep = () => {
-    if (step > 1) {
-      setStep((current) => current - 1);
-    }
+    if (step > 1) setStep((current) => current - 1);
   };
 
-  // Save business profile
   const handleSaveProfile = async () => {
     try {
       const response = await fetch("/api/business-profile", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceId:
             selectedProject?.workspace_id || selectedProject?.workspaceId,
@@ -509,9 +567,7 @@ export default function AIChat({
           ...formData,
         }),
       });
-
       const data = await response.json();
-
       if (response.ok) {
         setSavedProfile(data);
         setSetupMode(false);
@@ -519,41 +575,28 @@ export default function AIChat({
         onComplete?.(formData);
         onNotice("Business profile saved successfully");
       } else {
-        onNotice(data.error || "Failed to save business profile");
+        onNotice(data.error || "Failed to save");
       }
     } catch (error) {
-      console.error("Save profile error:", error);
-      onNotice("Failed to save business profile");
+      console.error("Save error:", error);
+      onNotice("Failed to save");
     }
   };
 
-  // Generate website content
   const handleGenerateContent = async () => {
     if (!selectedProject?.id || !userId) {
-      onNotice("Project ID and User ID are required");
+      onNotice("Project ID and User ID required");
       return;
     }
-    console.log("Generating website content for project:", selectedProject.id);
-    console.log("User ID:", userId);
-
     setIsGenerating(true);
-
     try {
       const response = await fetch("/api/website-generation", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          projectId: selectedProject.id,
-          userId: userId,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: selectedProject.id, userId }),
       });
-
       const data = await response.json();
-
       if (data.success) {
-        // Safe access with fallback
         const pagesCount =
           data?.data?.pagesCount || data?.data?.content?.pages?.length || 0;
         const servicesCount =
@@ -562,26 +605,19 @@ export default function AIChat({
           0;
         const faqsCount =
           data?.data?.faqsCount || data?.data?.content?.faqs?.length || 0;
-
-        console.log(
-          `✅ Generated: ${pagesCount} pages, ${servicesCount} services, ${faqsCount} FAQs`,
-        );
-
         onNotice(
           `Website generated: ${pagesCount} pages, ${servicesCount} services, ${faqsCount} FAQs`,
         );
-
         onGenerationComplete?.(data.data.content);
-
         onSend(
-          `Generated ${pagesCount} pages, ${servicesCount} services, and ${faqsCount} FAQs with color scheme and SEO metadata successfully!`,
+          `Generated ${pagesCount} pages, ${servicesCount} services, ${faqsCount} FAQs!`,
         );
       } else {
-        onNotice(data.error || "Failed to generate content");
+        onNotice(data.error || "Failed");
       }
     } catch (error) {
       console.error("Generation error:", error);
-      onNotice("Failed to generate website content");
+      onNotice("Failed to generate");
     } finally {
       setIsGenerating(false);
     }
@@ -589,7 +625,6 @@ export default function AIChat({
 
   const progress = (step / TOTAL_STEPS) * 100;
 
-  // Saved Profile Summary Component
   const SavedProfileSummary = () => (
     <div className="rounded-2xl border-2 border-indigo-500/30 bg-indigo-500/10 p-4">
       <div className="flex items-center justify-between mb-3">
@@ -602,11 +637,9 @@ export default function AIChat({
           onClick={() => setIsEditing(true)}
           className="flex items-center gap-1.5 rounded-lg border-2 border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-200 transition-all hover:border-indigo-400/50 hover:bg-indigo-500/20"
         >
-          <Pencil size={12} />
-          Edit
+          <Pencil size={12} /> Edit
         </button>
       </div>
-
       <div className="space-y-2">
         <div className="flex items-start gap-2">
           <span className="text-xs font-semibold text-indigo-300 w-24 shrink-0">
@@ -639,8 +672,6 @@ export default function AIChat({
           </span>
         </div>
       </div>
-
-      {/* Generate Button */}
       <button
         type="button"
         onClick={handleGenerateContent}
@@ -649,24 +680,21 @@ export default function AIChat({
       >
         {isGenerating ? (
           <>
-            <Loader2 size={18} className="animate-spin" />
-            Generating Website Content...
+            <Loader2 size={18} className="animate-spin" /> Generating...
           </>
         ) : (
           <>
-            <Sparkles size={18} />
-            Generate Complete Website
+            <Sparkles size={18} /> Generate Complete Website
           </>
         )}
       </button>
-
       {isGenerating && (
         <div className="mt-3 space-y-2">
           <div className="h-2 w-full overflow-hidden rounded-full bg-indigo-500/20">
             <div className="h-full w-1/3 animate-pulse rounded-full bg-gradient-to-r from-indigo-500 to-purple-500" />
           </div>
           <p className="text-center text-[11px] text-indigo-300/70">
-            This may take a minute. Creating sitemap, pages, services, FAQs...
+            Creating your website...
           </p>
         </div>
       )}
@@ -675,22 +703,15 @@ export default function AIChat({
 
   return (
     <>
-      {/* BACKDROP */}
       <div
-        className={`fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${
-          open ? "opacity-100" : "opacity-0"
-        }`}
+        className={`fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* ASSISTANT DRAWER */}
       <aside
-        className={`fixed right-0 top-0 z-[100] flex h-screen w-[440px] max-w-full flex-col border-l-2 border-indigo-500/30 bg-gradient-to-b from-[#1a1a2e] to-[#0a0a0b] shadow-2xl transition-transform duration-300 ease-out ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed right-0 top-0 z-[100] flex h-screen w-[440px] max-w-full flex-col border-l-2 border-indigo-500/30 bg-gradient-to-b from-[#1a1a2e] to-[#0a0a0b] shadow-2xl transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}
       >
-        {/* HEADER */}
         <div className="relative border-b-2 border-indigo-500/30 bg-gradient-to-r from-indigo-600/20 via-purple-600/20 to-pink-600/20 px-5 py-4">
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -709,40 +730,46 @@ export default function AIChat({
               </strong>
               <span className="mt-0.5 block text-xs text-indigo-300">
                 {isGenerating
-                  ? "Generating content..."
-                  : "Your Website Copilot"}
+                  ? "Generating..."
+                  : isLoadingProfile
+                    ? "Loading profile..."
+                    : "Your Website Copilot"}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                aria-label="Minimize assistant"
+                aria-label="Minimize"
                 onClick={onClose}
                 className="group rounded-lg p-2 transition-colors hover:bg-indigo-500/20"
               >
                 <PanelRight
                   size={17}
-                  className="text-indigo-300 transition-colors group-hover:text-white"
+                  className="text-indigo-300 group-hover:text-white"
                 />
               </button>
               <button
                 type="button"
-                aria-label="Close assistant"
+                aria-label="Close"
                 onClick={onClose}
                 className="group rounded-lg p-2 transition-colors hover:bg-indigo-500/20"
               >
                 <X
                   size={17}
-                  className="text-indigo-300 transition-colors group-hover:text-white"
+                  className="text-indigo-300 group-hover:text-white"
                 />
               </button>
             </div>
           </div>
         </div>
 
-        {setupMode || isEditing ? (
+        {isLoadingProfile ? (
+          <div className="flex flex-1 items-center justify-center">
+            <Loader2 size={32} className="animate-spin text-indigo-500" />
+          </div>
+        ) : setupMode || isEditing ? (
           <>
-            {/* SETUP CONTEXT */}
+            {/* FORM - same as before */}
             <div className="border-b-2 border-indigo-500/30 bg-indigo-500/10 px-5 py-3">
               <div className="flex items-center gap-2 text-xs">
                 <Sparkles size={14} className="text-indigo-400" />
@@ -756,36 +783,29 @@ export default function AIChat({
               </div>
             </div>
 
-            {/* CONTENT */}
             <div className="messages min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              {/* ASSISTANT INTRO */}
               <div className="message-row assistant animate-fade-in">
-                <span className="mini-bot flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/50">
+                <span className="mini-bot flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md">
                   <Bot size={14} className="text-white" />
                 </span>
-                <div className="message-bubble rounded-2xl rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 px-4 py-3 text-sm text-white shadow-sm">
+                <div className="message-bubble rounded-2xl rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 px-4 py-3 text-sm text-white">
                   {isEditing
-                    ? "Update your business profile details below."
-                    : step === 1 &&
-                      "Let's start with the basics. Tell me about your business so I can create a website that fits your brand."}
-                  {!isEditing &&
-                    step === 2 &&
-                    "Great. Now let's understand your market, location, and the people you want to reach."}
-                  {!isEditing &&
-                    step === 3 &&
-                    "Now let's understand what you offer and what you want your website to achieve."}
-                  {!isEditing &&
-                    step === 4 &&
-                    "Almost there. Let's define your brand style and the important details your website needs."}
+                    ? "Update your business profile."
+                    : step === 1
+                      ? "Let's start with the basics."
+                      : step === 2
+                        ? "Great. Now your market."
+                        : step === 3
+                          ? "What you offer?"
+                          : "Brand style details."}
                 </div>
               </div>
 
-              {/* PROGRESS */}
               {!isEditing && (
                 <>
                   <div className="mb-2 mt-6 flex items-center justify-between">
                     <span className="text-[10px] font-bold tracking-[0.12em] text-indigo-400">
-                      BUSINESS PROFILE · STEP {step} OF {TOTAL_STEPS}
+                      STEP {step} OF {TOTAL_STEPS}
                     </span>
                     <span className="text-[10px] font-bold text-indigo-400">
                       {progress}%
@@ -793,30 +813,28 @@ export default function AIChat({
                   </div>
                   <div className="mb-6 h-2 w-full overflow-hidden rounded-full bg-indigo-500/20">
                     <div
-                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500 ease-out"
+                      className="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-500"
                       style={{ width: `${progress}%` }}
                     />
                   </div>
                 </>
               )}
 
-              {/* FORM */}
               <div className="flex animate-fade-in flex-col gap-4">
+                {/* FORM FIELDS - same as before */}
                 {step === 1 && (
                   <>
                     <Input
                       label="Business name"
                       value={formData.businessName}
-                      onChange={(value) => updateField("businessName", value)}
+                      onChange={(v) => updateField("businessName", v)}
                       placeholder="e.g. Nova Digital"
                       icon={<Bot size={16} />}
                     />
                     <TextArea
                       label="Business description"
                       value={formData.businessDescription}
-                      onChange={(value) =>
-                        updateField("businessDescription", value)
-                      }
+                      onChange={(v) => updateField("businessDescription", v)}
                       placeholder="What does your business do?"
                       rows={4}
                       icon={<Sparkles size={16} />}
@@ -824,58 +842,52 @@ export default function AIChat({
                     <Input
                       label="Business location"
                       value={formData.location}
-                      onChange={(value) => updateField("location", value)}
+                      onChange={(v) => updateField("location", v)}
                       placeholder="e.g. Islamabad, Pakistan"
-                      icon={<span className="text-sm">📍</span>}
+                      icon={<span>📍</span>}
                     />
                     <TextArea
                       label="Service area"
                       value={formData.serviceArea}
-                      onChange={(value) => updateField("serviceArea", value)}
-                      placeholder="e.g. Pakistan, UAE, worldwide..."
+                      onChange={(v) => updateField("serviceArea", v)}
+                      placeholder="e.g. Pakistan, UAE..."
                       rows={2}
-                      icon={<span className="text-sm">🌍</span>}
+                      icon={<span>🌍</span>}
                     />
                   </>
                 )}
-
                 {step === 2 && (
                   <>
                     <Select
                       label="Industry"
                       value={formData.industry}
-                      onChange={(value) => updateField("industry", value)}
+                      onChange={(v) => updateField("industry", v)}
                       options={["Select industry", ...industries]}
-                      icon={<span className="text-sm">🏢</span>}
+                      icon={<span>🏢</span>}
                     />
                     <TextArea
                       label="Target customers"
                       value={formData.targetCustomers}
-                      onChange={(value) =>
-                        updateField("targetCustomers", value)
-                      }
+                      onChange={(v) => updateField("targetCustomers", v)}
                       placeholder="Who are your ideal customers?"
                       rows={4}
-                      icon={<span className="text-sm">🎯</span>}
+                      icon={<span>🎯</span>}
                     />
                     <Select
                       label="Preferred language"
                       value={formData.preferredLanguage}
-                      onChange={(value) =>
-                        updateField("preferredLanguage", value)
-                      }
+                      onChange={(v) => updateField("preferredLanguage", v)}
                       options={languages}
-                      icon={<span className="text-sm">🌐</span>}
+                      icon={<span>🌐</span>}
                     />
                   </>
                 )}
-
                 {step === 3 && (
                   <>
                     <div>
                       <span className={labelStyle}>
-                        <span className="text-indigo-400">🛠️</span>
-                        Products or services
+                        <span className="text-indigo-400">🛠️</span>Products or
+                        services
                       </span>
                       <ArrayInput
                         value={serviceInput}
@@ -886,21 +898,20 @@ export default function AIChat({
                         onRemove={(item) =>
                           removeFromArray("productsServices", item)
                         }
-                        icon={<span className="text-sm">🛠️</span>}
+                        icon={<span>🛠️</span>}
                       />
                     </div>
                     <TextArea
                       label="Main website goals"
                       value={formData.mainGoals}
-                      onChange={(value) => updateField("mainGoals", value)}
-                      placeholder="e.g. Generate leads, sell products, showcase services..."
+                      onChange={(v) => updateField("mainGoals", v)}
+                      placeholder="e.g. Generate leads..."
                       rows={4}
-                      icon={<span className="text-sm">🎯</span>}
+                      icon={<span>🎯</span>}
                     />
                     <div>
                       <span className={labelStyle}>
-                        <span className="text-indigo-400">📢</span>
-                        Primary calls-to-action
+                        <span className="text-indigo-400">📢</span>Primary CTAs
                       </span>
                       <ArrayInput
                         value={ctaInput}
@@ -911,50 +922,37 @@ export default function AIChat({
                         onRemove={(item) =>
                           removeFromArray("primaryCTAs", item)
                         }
-                        icon={<span className="text-sm">📢</span>}
+                        icon={<span>📢</span>}
                       />
                     </div>
                   </>
                 )}
-
                 {step === 4 && (
                   <>
                     <div>
                       <span className={labelStyle}>
-                        <span className="text-indigo-400">🎨</span>
-                        Brand voice
+                        <span className="text-indigo-400">🎨</span>Brand voice
                       </span>
-                      <p className="mt-1 text-[11px] leading-5 text-indigo-300/70">
-                        Choose how your website should communicate with
-                        visitors.
-                      </p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {brandVoices.map((voice) => {
-                        const selected = formData.brandVoice === voice;
-                        return (
-                          <button
-                            type="button"
-                            key={voice}
-                            onClick={() => updateField("brandVoice", voice)}
-                            className={`flex min-h-10 items-center justify-center gap-1.5 rounded-xl border-2 px-2 py-2 text-xs transition-all ${
-                              selected
-                                ? "border-indigo-400 bg-indigo-500/30 text-white shadow-lg shadow-indigo-500/30"
-                                : "border-indigo-500/30 bg-indigo-500/10 text-indigo-200 hover:border-indigo-400/50 hover:bg-indigo-500/20"
-                            }`}
-                          >
-                            {selected && (
-                              <Check size={13} className="text-indigo-300" />
-                            )}
-                            {voice}
-                          </button>
-                        );
-                      })}
+                      <div className="grid grid-cols-2 gap-2">
+                        {brandVoices.map((voice) => {
+                          const selected = formData.brandVoice === voice;
+                          return (
+                            <button
+                              key={voice}
+                              type="button"
+                              onClick={() => updateField("brandVoice", voice)}
+                              className={`flex min-h-10 items-center justify-center gap-1.5 rounded-xl border-2 px-2 py-2 text-xs transition-all ${selected ? "border-indigo-400 bg-indigo-500/30 text-white" : "border-indigo-500/30 bg-indigo-500/10 text-indigo-200"}`}
+                            >
+                              {selected && <Check size={13} />} {voice}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                     <div>
                       <span className={labelStyle}>
-                        <span className="text-indigo-400">📄</span>
-                        Required pages
+                        <span className="text-indigo-400">📄</span>Required
+                        pages
                       </span>
                       <ArrayInput
                         value={pageInput}
@@ -965,22 +963,19 @@ export default function AIChat({
                         onRemove={(item) =>
                           removeFromArray("requiredPages", item)
                         }
-                        icon={<span className="text-sm">📄</span>}
+                        icon={<span>📄</span>}
                       />
                     </div>
                     <TextArea
                       label="Image preferences"
                       value={formData.imagePreferences}
-                      onChange={(value) =>
-                        updateField("imagePreferences", value)
-                      }
-                      placeholder="e.g. Modern, clean, professional photography..."
-                      icon={<span className="text-sm">🖼️</span>}
+                      onChange={(v) => updateField("imagePreferences", v)}
+                      placeholder="e.g. Modern, clean..."
+                      icon={<span>🖼️</span>}
                     />
                     <div>
                       <span className={labelStyle}>
-                        <span className="text-indigo-400">🎨</span>
-                        Existing brand colors
+                        <span className="text-indigo-400">🎨</span>Brand colors
                       </span>
                       <ArrayInput
                         value={colorInput}
@@ -991,13 +986,12 @@ export default function AIChat({
                         onRemove={(item) =>
                           removeFromArray("existingBrandColors", item)
                         }
-                        icon={<span className="text-sm">🎨</span>}
+                        icon={<span>🎨</span>}
                       />
                     </div>
                     <div>
                       <span className={labelStyle}>
-                        <span className="text-indigo-400">🔍</span>
-                        Competitor references
+                        <span className="text-indigo-400">🔍</span>Competitors
                       </span>
                       <ArrayInput
                         value={competitorInput}
@@ -1008,48 +1002,42 @@ export default function AIChat({
                         onRemove={(item) =>
                           removeFromArray("competitorReferences", item)
                         }
-                        icon={<span className="text-sm">🔍</span>}
+                        icon={<span>🔍</span>}
                       />
                     </div>
                     <TextArea
                       label="Contact information"
                       value={formData.contactInformation}
-                      onChange={(value) =>
-                        updateField("contactInformation", value)
-                      }
-                      placeholder="Email, phone, address or other contact details..."
-                      icon={<span className="text-sm">📞</span>}
+                      onChange={(v) => updateField("contactInformation", v)}
+                      placeholder="Email, phone, address..."
+                      icon={<span>📞</span>}
                     />
                     <TextArea
                       label="Social links"
                       value={formData.socialLinks}
-                      onChange={(value) => updateField("socialLinks", value)}
-                      placeholder="Instagram, Facebook, LinkedIn, X..."
-                      icon={<span className="text-sm">🔗</span>}
+                      onChange={(v) => updateField("socialLinks", v)}
+                      placeholder="Instagram, Facebook..."
+                      icon={<span>🔗</span>}
                     />
                     <TextArea
                       label="Restricted claims"
                       value={formData.restrictedClaims}
-                      onChange={(value) =>
-                        updateField("restrictedClaims", value)
-                      }
-                      placeholder="Anything the AI should avoid claiming..."
-                      icon={<span className="text-sm">⚠️</span>}
+                      onChange={(v) => updateField("restrictedClaims", v)}
+                      placeholder="Anything to avoid..."
+                      icon={<span>⚠️</span>}
                     />
                   </>
                 )}
               </div>
             </div>
 
-            {/* FOOTER */}
             <div className="border-t-2 border-indigo-500/30 bg-indigo-500/10 px-5 py-4">
               <div className="flex w-full gap-2">
                 {step > 1 && !isEditing && (
                   <button
                     type="button"
                     onClick={previousStep}
-                    aria-label="Previous step"
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border-2 border-indigo-500/30 bg-indigo-500/10 text-white transition-all hover:border-indigo-500/50 hover:bg-indigo-500/20"
+                    className="grid h-10 w-10 place-items-center rounded-xl border-2 border-indigo-500/30 bg-indigo-500/10 text-white"
                   >
                     <ArrowLeft size={16} />
                   </button>
@@ -1058,133 +1046,64 @@ export default function AIChat({
                   <button
                     type="button"
                     onClick={handleSaveProfile}
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/50 transition-all hover:scale-[1.02] hover:opacity-90"
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold"
                   >
-                    <Save size={16} />
-                    Save Changes
+                    <Save size={16} /> Save Changes
                   </button>
                 ) : step < TOTAL_STEPS ? (
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 px-4 text-sm font-bold text-white shadow-lg shadow-indigo-500/50 transition-all hover:scale-[1.02] hover:opacity-90"
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold"
                   >
-                    Continue
-                    <ArrowUpRight size={16} />
+                    Continue <ArrowUpRight size={16} />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleSaveProfile}
-                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 text-sm font-bold text-white shadow-lg shadow-emerald-500/50 transition-all hover:scale-[1.02] hover:opacity-90"
+                    className="flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold"
                   >
-                    <Save size={16} />
-                    Save Profile
+                    <Save size={16} /> Save Profile
                   </button>
                 )}
               </div>
-              <p className="mt-3 text-center text-[11px] text-indigo-300/70">
-                Your information is used to personalize your website generation.
-              </p>
             </div>
           </>
         ) : (
           <>
-            {/* CONTEXT */}
             <div className="border-b-2 border-indigo-500/30 bg-indigo-500/10 px-5 py-3">
               <div className="flex items-center gap-2 text-xs">
                 <Sparkles size={14} className="text-indigo-400" />
                 <span className="text-indigo-300">
                   Context:{" "}
-                  <strong className="font-semibold text-white">
-                    {selectedProject?.name ?? "No project selected"}
+                  <strong className="text-white">
+                    {selectedProject?.name}
                   </strong>
                 </span>
-                <ChevronDown size={14} className="ml-auto text-indigo-400" />
               </div>
             </div>
 
-            {/* MESSAGES */}
             <div className="messages min-h-0 flex-1 overflow-y-auto px-5 py-4">
-              {/* ASSISTANT INTRO */}
-              <div className="message-row assistant animate-fade-in">
-                <span className="mini-bot flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/50">
-                  <Bot size={14} className="text-white" />
-                </span>
-                <div className="message-bubble rounded-2xl rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 px-4 py-3 text-sm text-white">
-                  Your business profile is saved. You can review it or generate
-                  your website content now.
-                </div>
-              </div>
-
-              {/* SAVED PROFILE SUMMARY */}
               <div className="mt-4 animate-fade-in">
                 <SavedProfileSummary />
               </div>
-
-              {/* SUGGESTIONS */}
-              <div className="mb-3 mt-6 text-[10px] font-bold tracking-[0.1em] text-indigo-400">
-                SUGGESTED NEXT STEPS
-              </div>
-              <div className="grid grid-cols-1 gap-2">
-                {[
-                  "Generate my sitemap",
-                  "Generate my homepage",
-                  "Generate my services",
-                  "Generate FAQs",
-                  ...prompts,
-                ]
-                  .filter(
-                    (prompt, index, array) => array.indexOf(prompt) === index,
-                  )
-                  .map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => onSend(prompt)}
-                      className="group flex items-center justify-between rounded-xl border-2 border-indigo-500/30 bg-indigo-500/10 px-4 py-3 text-sm text-indigo-100 transition-all hover:border-indigo-400/50 hover:bg-indigo-500/20 hover:text-white"
-                    >
-                      {prompt}
-                      <ArrowUpRight
-                        size={13}
-                        className="opacity-40 transition-all group-hover:text-indigo-300 group-hover:opacity-100"
-                      />
-                    </button>
-                  ))}
-              </div>
-
-              {/* USER / ASSISTANT MESSAGES */}
               {messages.length > 0 && (
                 <div className="mt-6 space-y-4">
                   {messages.map((message, index) => (
                     <div
                       key={`${message.role}-${index}`}
-                      className={`flex gap-2 ${
-                        message.role === "user"
-                          ? "justify-end"
-                          : "justify-start"
-                      }`}
+                      className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
                     >
                       {message.role === "assistant" && (
-                        <span className="mini-bot flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-md shadow-indigo-500/50">
+                        <span className="mini-bot flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600">
                           <Bot size={14} className="text-white" />
                         </span>
                       )}
                       <div
-                        className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                          message.role === "user"
-                            ? "rounded-tr-none bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
-                            : "rounded-tl-none border-2 border-indigo-500/30 bg-indigo-500/20 text-white"
-                        }`}
+                        className={`rounded-2xl px-4 py-3 text-sm ${message.role === "user" ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white" : "border-2 border-indigo-500/30 bg-indigo-500/20 text-white"}`}
                       >
-                        {message.isLoading ? (
-                          <div className="flex items-center gap-2">
-                            <Loader2 size={14} className="animate-spin" />
-                            Generating...
-                          </div>
-                        ) : (
-                          message.text
-                        )}
+                        {message.text}
                       </div>
                     </div>
                   ))}
@@ -1192,72 +1111,31 @@ export default function AIChat({
               )}
             </div>
 
-            {/* COMPOSER */}
             <div className="border-t-2 border-indigo-500/30 bg-indigo-500/10 px-5 py-4">
               <div className="flex items-center gap-2">
-                <div className="flex flex-1 items-center gap-2 rounded-xl border-2 border-indigo-500/30 bg-indigo-500/10 px-4 py-2.5 transition-all focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-400/30">
-                  <input
-                    aria-label="Message SiteForge Assistant"
-                    value={input}
-                    onChange={(event) => onInputChange(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (
-                        event.key === "Enter" &&
-                        !event.shiftKey &&
-                        !event.nativeEvent.isComposing &&
-                        event.keyCode !== 229
-                      ) {
-                        event.preventDefault();
-                        onSend();
-                      }
-                    }}
-                    placeholder="Ask anything about your website..."
-                    className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-indigo-300/50"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Add attachment"
-                    onClick={() => onNotice("Attachments are coming soon")}
-                    className="rounded-lg p-1 transition-colors hover:bg-indigo-500/20"
-                  >
-                    <Plus
-                      size={17}
-                      className="text-indigo-400 transition-colors hover:text-white"
-                    />
-                  </button>
-                </div>
+                <input
+                  value={input}
+                  onChange={(e) => onInputChange(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      onSend();
+                    }
+                  }}
+                  placeholder="Ask anything..."
+                  className="flex-1 rounded-xl border-2 border-indigo-500/30 bg-indigo-500/10 px-4 py-2.5 text-sm text-white outline-none"
+                />
                 <button
-                  type="button"
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/50 transition-all hover:scale-105 hover:opacity-90"
-                  aria-label="Send message"
                   onClick={() => onSend()}
+                  className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white"
                 >
                   <Send size={16} />
                 </button>
               </div>
-              <p className="mt-3 text-center text-[11px] text-indigo-300/70">
-                SiteForge can make mistakes. Check important details.
-              </p>
             </div>
           </>
         )}
       </aside>
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.3s ease-out;
-        }
-      `}</style>
     </>
   );
 }

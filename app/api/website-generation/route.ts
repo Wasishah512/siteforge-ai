@@ -5,9 +5,189 @@ import { sql } from "drizzle-orm";
 import { generateCompleteHTML } from "@/lib/htmlGenerator";
 import { sendGenerationReadyEmail } from "@/lib/Emails/generationReady";
 
+// ============ TYPES & INTERFACES ============
+interface PageSection {
+  section_type: string;
+  heading: string;
+  content: string;
+  button_text: string;
+  image_prompt: string;
+}
+
+interface PageContent {
+  title: string;
+  meta_description: string;
+  sections: PageSection[];
+}
+
+interface Page {
+  page_name: string;
+  title: string;
+  meta_description: string;
+  sections: PageSection[];
+}
+
+interface ColorScheme {
+  primary_color: string;
+  secondary_color: string;
+  accent_color: string;
+  background_color: string;
+  surface_color: string;
+  text_color: string;
+  heading_color: string;
+  muted_text_color: string;
+  button_color: string;
+  button_text_color: string;
+  button_hover_color: string;
+  link_color: string;
+  border_color: string;
+  font_family: string;
+  font_size_base: string;
+  font_size_small: string;
+  font_size_heading: string;
+  font_size_large: string;
+  border_radius: string;
+}
+
+interface Service {
+  service_name: string;
+  description: string;
+  features: string[];
+}
+
+interface FAQ {
+  question: string;
+  answer: string;
+  category: string;
+}
+
+interface SitemapEntry {
+  page_name: string;
+  slug: string;
+  parent_page: string | null;
+  order: number;
+}
+
+interface WebsiteContent {
+  pages: Page[];
+  color_scheme: ColorScheme;
+  services: Service[];
+  faqs: FAQ[];
+  sitemap: SitemapEntry[];
+}
+
 const groq = new Groq({ 
   apiKey: process.env.GROQ_API_KEY || "" 
 });
+
+// ============ CLEAN COLOR HELPER ============
+function cleanColor(color: string): string {
+  if (!color) return "#6366F1";
+  const hexMatch = color.match(/#[0-9A-Fa-f]{6}/);
+  return hexMatch ? hexMatch[0] : "#6366F1";
+}
+
+// ============ DYNAMIC PAGE CONTENT GENERATOR ============
+function generatePageContent(
+  pageName: string,
+  businessName: string,
+  industry: string,
+  location: string,
+  targetCustomers: string,
+  mainGoals: string,
+  productsServices: string[],
+  serviceArea: string,
+  primaryCtas: string[],
+): any {
+  const cleanCta = (cta: string) => cta?.replace(/^[-•\s]+/, '').trim() || "Contact Us";
+  const cta1 = cleanCta(primaryCtas[0] || "Contact Us");
+  const cta2 = cleanCta(primaryCtas[1] || "Learn More");
+
+  const pageTemplates: Record<string, any> = {
+    "Home": {
+      title: `${businessName} | ${industry} in ${location}`,
+      meta_description: `${businessName} offers ${productsServices.slice(0, 3).join(', ')} for ${targetCustomers} in ${location}.`,
+      sections: [
+        { section_type: "hero", heading: `${businessName} - ${industry} Excellence`, content: `Welcome to ${businessName}. We provide ${productsServices.slice(0, 3).join(', ')} for ${targetCustomers} in ${location}.`, button_text: cta1, image_prompt: `${businessName} hero` },
+        { section_type: "features", heading: `Why Choose ${businessName}?`, content: `Our goal is to ${mainGoals}. We serve ${targetCustomers} with professional ${industry} solutions.`, button_text: cta2, image_prompt: `${businessName} features` },
+        { section_type: "services_overview", heading: "Our Services", content: productsServices.join(', '), button_text: "View All Services", image_prompt: `${businessName} services` },
+        { section_type: "cta", heading: "Ready to Get Started?", content: `Contact ${businessName} today and let us help you ${mainGoals}.`, button_text: cta1, image_prompt: `${businessName} cta` }
+      ]
+    },
+    "About": {
+      title: `About ${businessName} | ${industry} in ${location}`,
+      meta_description: `Learn about ${businessName}, our mission, values, and commitment to serving ${targetCustomers}.`,
+      sections: [
+        { section_type: "hero", heading: `About ${businessName}`, content: `${businessName} is a leading ${industry} company based in ${location}.`, button_text: cta2, image_prompt: `${businessName} about` },
+        { section_type: "story", heading: "Our Story", content: `Founded to serve ${targetCustomers}, ${businessName} provides ${productsServices.join(', ')} with excellence.`, button_text: "Our Journey", image_prompt: `${businessName} story` },
+        { section_type: "values", heading: "Our Core Values", content: `Integrity, quality, and customer satisfaction drive ${businessName}.`, button_text: "Our Values", image_prompt: `${businessName} values` },
+        { section_type: "cta", heading: "Work With Us", content: `Partner with ${businessName} for all your ${industry} needs.`, button_text: cta1, image_prompt: `${businessName} about cta` }
+      ]
+    },
+    "Services": {
+      title: `Our Services | ${businessName}`,
+      meta_description: `Explore ${businessName}'s services: ${productsServices.join(', ')} for ${targetCustomers}.`,
+      sections: [
+        { section_type: "hero", heading: "Our Services", content: `${businessName} offers ${productsServices.join(', ')}.`, button_text: cta1, image_prompt: `${businessName} services` },
+        { section_type: "services_grid", heading: "What We Offer", content: productsServices.join(', '), button_text: "Get Started", image_prompt: `${businessName} services grid` },
+        { section_type: "cta", heading: "Need a Custom Solution?", content: `Contact ${businessName} for personalized ${industry} services.`, button_text: cta1, image_prompt: `${businessName} services cta` }
+      ]
+    },
+    "Contact": {
+      title: `Contact ${businessName} | ${location}`,
+      meta_description: `Get in touch with ${businessName} in ${location}. We serve ${targetCustomers} across ${serviceArea}.`,
+      sections: [
+        { section_type: "hero", heading: "Contact Us", content: `Have questions? Reach out to ${businessName} in ${location}.`, button_text: "Send Message", image_prompt: `${businessName} contact` },
+        { section_type: "contact_form", heading: "Send Us a Message", content: `Fill out the form and we'll respond within 24 hours.`, button_text: "Submit", image_prompt: `${businessName} contact form` },
+        { section_type: "contact_info", heading: "Our Location", content: `Visit us in ${location}. We serve ${targetCustomers}.`, button_text: "Get Directions", image_prompt: `${businessName} location` }
+      ]
+    },
+    "Blog": {
+      title: `Blog | ${businessName}`,
+      meta_description: `Insights, tips, and updates from ${businessName} about ${industry}.`,
+      sections: [
+        { section_type: "hero", heading: "Our Blog", content: `Latest insights about ${industry} from ${businessName}.`, button_text: "Read Articles", image_prompt: `${businessName} blog` },
+        { section_type: "blog_grid", heading: "Latest Articles", content: `Expert tips for ${targetCustomers}.`, button_text: "Read More", image_prompt: `${businessName} blog grid` },
+        { section_type: "cta", heading: "Subscribe for Updates", content: `Get ${industry} insights delivered to your inbox.`, button_text: "Subscribe", image_prompt: `${businessName} blog cta` }
+      ]
+    },
+    "FAQ": {
+      title: `FAQ | ${businessName}`,
+      meta_description: `Frequently asked questions about ${businessName}'s services.`,
+      sections: [
+        { section_type: "hero", heading: "Frequently Asked Questions", content: `Find answers about ${businessName} and our services.`, button_text: "Contact Us", image_prompt: `${businessName} faq` },
+        { section_type: "faq_accordion", heading: "Common Questions", content: `Questions about ${productsServices.join(', ')} answered.`, button_text: "Ask a Question", image_prompt: `${businessName} faq` },
+        { section_type: "cta", heading: "Still Have Questions?", content: `Contact ${businessName} in ${location}.`, button_text: cta1, image_prompt: `${businessName} faq cta` }
+      ]
+    },
+    "Pricing": {
+      title: `Pricing | ${businessName}`,
+      meta_description: `Affordable pricing for ${productsServices.slice(0, 3).join(', ')}.`,
+      sections: [
+        { section_type: "hero", heading: "Our Pricing", content: `Transparent pricing for ${productsServices.join(', ')}.`, button_text: "Get Quote", image_prompt: `${businessName} pricing` },
+        { section_type: "pricing_cards", heading: "Choose Your Plan", content: `Flexible pricing for ${targetCustomers}.`, button_text: "Select Plan", image_prompt: `${businessName} pricing plans` },
+        { section_type: "cta", heading: "Need Custom Pricing?", content: `Contact ${businessName} for a personalized quote.`, button_text: cta1, image_prompt: `${businessName} pricing cta` }
+      ]
+    }
+  };
+
+  const template = pageTemplates[pageName];
+
+  if (template) {
+    return template;
+  }
+
+  // Default for any other page (Shop, Track Order, Return Policy, etc.)
+  return {
+    title: `${pageName} | ${businessName}`,
+    meta_description: `${pageName} - ${businessName} provides ${productsServices.slice(0, 3).join(', ')} for ${targetCustomers} in ${location}.`,
+    sections: [
+      { section_type: "hero", heading: pageName, content: `Welcome to ${businessName}'s ${pageName} page.`, button_text: cta1, image_prompt: `${businessName} ${pageName}` },
+      { section_type: "content", heading: `About Our ${pageName}`, content: `${businessName} serves ${targetCustomers} in ${location} and ${serviceArea}.`, button_text: cta2, image_prompt: `${businessName} ${pageName} content` },
+      { section_type: "cta", heading: "Get In Touch", content: `Contact ${businessName} today to learn more about our ${pageName}.`, button_text: cta1, image_prompt: `${businessName} ${pageName} cta` }
+    ]
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,7 +241,7 @@ export async function POST(request: NextRequest) {
       return fallback;
     };
 
-    // ============ ALL BUSINESS PROFILE DATA ============
+    // Business profile data
     const businessName = safeString(profile.business_name, "Business");
     const businessDescription = safeString(profile.business_description, "");
     const industry = safeString(profile.industry, "General");
@@ -77,350 +257,116 @@ export async function POST(request: NextRequest) {
     const requiredPages = parseJsonArray(profile.required_pages, ['Home', 'About', 'Services', 'Contact']);
     const productsServices = parseJsonArray(profile.products_services, []);
     const primaryCtas = parseJsonArray(profile.primary_ctas, []);
-    const competitorReferences = parseJsonArray(profile.competitor_references, []);
     const existingBrandColors = parseJsonArray(profile.existing_brand_colors, []);
     const contactInformation = parseJsonObject(profile.contact_information, {});
-    const socialLinks = parseJsonObject(profile.social_links, {});
 
     console.log("📦 Business:", businessName);
-    console.log("🏢 Industry:", industry);
-    console.log("📍 Location:", location);
-    console.log("🎯 Target:", targetCustomers);
-    console.log("🎯 Goals:", mainGoals);
-    console.log("📄 Pages:", requiredPages);
-    console.log("🛠️ Services:", productsServices);
-    console.log("📢 CTAs:", primaryCtas);
+    console.log("📄 Required pages:", requiredPages);
+    console.log("🎨 Brand colors:", existingBrandColors);
 
-    // ============ CONTENT GENERATION ============
-    console.log("📝 Generating content...");
+    // ============ GENERATE ALL PAGES (GUARANTEED) ============
+    console.log("📝 Generating all pages...");
 
-    const contentPrompt = `
-Generate a complete website for this business:
+    const allPages:any[] = [];
 
-=== BUSINESS PROFILE ===
-Name: ${businessName}
-Description: ${businessDescription}
-Industry: ${industry}
-Location: ${location}
-Service Area: ${serviceArea}
+    requiredPages.forEach((pageName: string, index: number) => {
+      const dynamicContent = generatePageContent(
+        pageName,
+        businessName,
+        industry,
+        location,
+        targetCustomers,
+        mainGoals,
+        productsServices,
+        serviceArea,
+        primaryCtas,
+      );
 
-=== TARGET AUDIENCE ===
-${targetCustomers}
-
-=== BUSINESS GOALS ===
-${mainGoals}
-
-=== BRAND VOICE ===
-${brandVoice}
-
-=== LANGUAGE ===
-${preferredLanguage}
-
-=== SERVICES ===
-${JSON.stringify(productsServices)}
-
-=== PAGES NEEDED ===
-${JSON.stringify(requiredPages)}
-
-=== CALL TO ACTIONS ===
-Use these CTAs in buttons: ${JSON.stringify(primaryCtas.length > 0 ? primaryCtas : ["Learn More", "Contact Us", "Get Started", "Shop Now"])}
-
-=== COMPETITORS ===
-${JSON.stringify(competitorReferences)}
-
-=== CONTACT INFO ===
-${JSON.stringify(contactInformation)}
-
-=== SOCIAL LINKS ===
-${JSON.stringify(socialLinks)}
-
-=== IMAGE PREFERENCES ===
-${imagePreferences}
-
-=== RESTRICTED CLAIMS (AVOID) ===
-${restrictedClaims || "None"}
-
-=== CRITICAL REQUIREMENTS ===
-1. Write content that appeals to: ${targetCustomers}
-2. Content should achieve: ${mainGoals}
-3. Use brand voice: ${brandVoice}
-4. EVERY section MUST have button_text (CTA)
-5. EVERY page MUST have at least 2 sections
-6. Hero sections MUST have image_prompt
-7. Content should mention location: ${location}
-8. Content should mention service area: ${serviceArea}
-9. Generate at least 4 FAQs
-10. Generate complete color scheme
-11. Generate sitemap array with all pages
-
-Return JSON with ALL these fields:
-{
-  "sitemap": [
-    {"page_name": "Home", "slug": "home", "parent_page": null, "order": 1}
-  ],
-  "pages": [
-    {
-      "page_name": "Home",
-      "title": "SEO Title for ${businessName}",
-      "meta_description": "SEO description targeting ${targetCustomers}",
-      "sections": [
-        {
-          "section_type": "hero",
-          "heading": "Heading for ${targetCustomers}",
-          "content": "Content about ${mainGoals}",
-          "button_text": "Shop Now",
-          "image_prompt": "Image showing ${businessName} services"
-        },
-        {
-          "section_type": "cta",
-          "heading": "Ready to start?",
-          "content": "Contact us today",
-          "button_text": "Contact Us"
-        }
-      ]
-    }
-  ],
-  "services": [
-    {"service_name": "...", "description": "...", "features": ["..."]}
-  ],
-  "faqs": [
-    {"question": "...", "answer": "...", "category": "general"}
-  ],
-  "metadata": {
-    "site_title": "${businessName}",
-    "site_description": "${businessDescription.slice(0, 150)}",
-    "keywords": ["${businessName}", "${industry}", "${location}", "services"]
-  },
-  "color_scheme": {
-    "primary_color": "#HEX",
-    "secondary_color": "#HEX",
-    "accent_color": "#HEX",
-    "background_color": "#HEX",
-    "surface_color": "#HEX",
-    "text_color": "#HEX",
-    "heading_color": "#HEX",
-    "muted_text_color": "#HEX",
-    "button_color": "#HEX",
-    "button_text_color": "#HEX",
-    "button_hover_color": "#HEX",
-    "link_color": "#HEX",
-    "border_color": "#HEX",
-    "font_family": "Inter",
-    "font_size_base": "16px",
-    "font_size_small": "14px",
-    "font_size_heading": "32px",
-    "font_size_large": "48px",
-    "border_radius": "8px"
-  },
-  "image_prompts": [
-    {"page": "Home", "section": "hero", "prompt": "Image description"}
-  ],
-  "schema_suggestions": [
-    {"schema_type": "LocalBusiness", "data": {}}
-  ]
-}
-`;
-
-    const contentResponse = await groq.chat.completions.create({
-      model: "qwen/qwen3.8-27b",
-      messages: [
-        { role: "system", content: "Professional website content generator. Return ONLY valid JSON. Include ALL requested fields including sitemap." },
-        { role: "user", content: contentPrompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 900,
-      response_format: { type: "json_object" }
-    });
-
-    const contentText = contentResponse.choices[0]?.message?.content || '{}';
-    const content = JSON.parse(contentText.replace(/```json/g, '').replace(/```/g, '').trim());
-
-    console.log("✅ Content generated from AI");
-    console.log("📊 AI pages:", content.pages?.length || 0);
-    console.log("📊 AI sitemap:", content.sitemap?.length || 0);
-    console.log("📊 AI services:", content.services?.length || 0);
-    console.log("📊 AI FAQs:", content.faqs?.length || 0);
-
-    // ============ SITEMAP CHECK ============
-    if (!content.sitemap || content.sitemap.length === 0) {
-      content.sitemap = content.pages.map((page: any, index: number) => ({
-        page_name: page.page_name,
-        slug: page.page_name.toLowerCase().replace(/\s+/g, '-'),
-        parent_page: null,
-        order: index + 1
-      }));
-      console.log("✅ Generated sitemap from pages");
-    }
-
-    // ============ MISSING DATA CHECK ============
-    
-    // 1. Pages check
-    if (!content.pages || content.pages.length === 0) {
-      content.pages = requiredPages.map((pageName: string) => ({
+      allPages.push({
         page_name: pageName,
-        title: `${pageName} | ${businessName}`,
-        meta_description: `${pageName} for ${businessName} in ${location}`,
-        sections: [
-          {
-            section_type: "hero",
-            heading: `${pageName} - ${businessName}`,
-            content: `Welcome to ${businessName}. We serve ${targetCustomers} in ${location}.`,
-            button_text: primaryCtas[0] || "Contact Us",
-            image_prompt: `${businessName} ${pageName}`
-          },
-          {
-            section_type: "cta",
-            heading: "Get Started Today",
-            content: `Contact ${businessName} for ${productsServices[0] || "our services"}.`,
-            button_text: primaryCtas[1] || "Learn More"
-          }
-        ]
-      }));
-      console.log("✅ Added default pages with CTAs");
-    }
-
-    // 2. Missing pages check
-    const generatedPages = content.pages.map((p: any) => p.page_name);
-    const missingPages = requiredPages.filter((p: string) => !generatedPages.includes(p));
-
-    if (missingPages.length > 0) {
-      console.log(`⚠️ Missing pages: ${missingPages.join(', ')}`);
-      missingPages.forEach((pageName: string) => {
-        content.pages.push({
-          page_name: pageName,
-          title: `${pageName} | ${businessName}`,
-          meta_description: `${pageName} for ${businessName}`,
-          sections: [
-            {
-              section_type: "hero",
-              heading: pageName,
-              content: `Welcome to our ${pageName} page`,
-              button_text: primaryCtas[0] || "Contact Us",
-              image_prompt: `${businessName} ${pageName}`
-            }
-          ]
-        });
+        title: dynamicContent.title,
+        meta_description: dynamicContent.meta_description,
+        sections: dynamicContent.sections,
       });
-    }
 
-    // 3. Sitemap sync with pages
-    const finalPageNames = content.pages.map((p: any) => p.page_name);
-    const sitemapNames = content.sitemap.map((s: any) => s.page_name);
-    const missingSitemapPages = finalPageNames.filter((p: string) => !sitemapNames.includes(p));
-    
-    if (missingSitemapPages.length > 0) {
-      missingSitemapPages.forEach((pageName: string) => {
-        content.sitemap.push({
-          page_name: pageName,
-          slug: pageName.toLowerCase().replace(/\s+/g, '-'),
-          parent_page: null,
-          order: content.sitemap.length + 1
-        });
-      });
-      console.log("✅ Synced sitemap with pages");
-    }
-
-    // 4. Ensure every section has button_text
-    content.pages.forEach((page: any) => {
-      page.sections.forEach((section: any) => {
-        if (!section.button_text) {
-          section.button_text = primaryCtas[0] || "Learn More";
-        }
-        if (!section.image_prompt && section.section_type === "hero") {
-          section.image_prompt = `${businessName} ${page.page_name} hero image`;
-        }
-      });
+      console.log(`  ✓ ${pageName} (${dynamicContent.sections.length} sections)`);
     });
 
-    // 5. Services check
-    if (!content.services || content.services.length === 0) {
-      content.services = productsServices.map((service: string) => ({
-        service_name: service,
-        description: `${service} by ${businessName}. We serve ${targetCustomers} in ${location}.`,
-        features: ["Professional service", "Quality guaranteed", "Affordable pricing"]
-      }));
-      console.log("✅ Added default services");
-    }
+    const content: any = {};
+    content.pages = allPages;
 
-    // 6. FAQs check
-    if (!content.faqs || content.faqs.length === 0) {
-      content.faqs = [
-        {
-          question: `What services does ${businessName} offer?`,
-          answer: `We offer ${productsServices.slice(0, 3).join(', ')} and more. Contact us for details.`,
-          category: "general"
-        },
-        {
-          question: `Where is ${businessName} located?`,
-          answer: `We are located in ${location} and serve ${serviceArea}.`,
-          category: "location"
-        },
-        {
-          question: "How can I contact you?",
-          answer: `You can reach us through our contact page or email.`,
-          category: "general"
-        },
-        {
-          question: "Do you offer free consultations?",
-          answer: "Yes, we offer free initial consultations to understand your needs.",
-          category: "general"
-        }
-      ];
-      console.log("✅ Added default FAQs");
-    }
+    console.log(`✅ Generated ${content.pages.length} pages`);
 
-    // 7. Color scheme check
-    if (!content.color_scheme || Object.keys(content.color_scheme).length === 0) {
-      content.color_scheme = {
-        primary_color: existingBrandColors[0] || "#6366F1",
-        secondary_color: existingBrandColors[1] || "#8B5CF6",
-        accent_color: "#818CF8",
-        background_color: "#FFFFFF",
-        surface_color: "#F8F9FA",
-        text_color: "#333333",
-        heading_color: "#111111",
-        muted_text_color: "#6B7280",
-        button_color: existingBrandColors[0] || "#6366F1",
-        button_text_color: "#FFFFFF",
-        button_hover_color: "#5558E6",
-        link_color: "#6366F1",
-        border_color: "#E5E7EB",
-        font_family: "Inter, sans-serif",
-        font_size_base: "16px",
-        font_size_small: "14px",
-        font_size_heading: "32px",
-        font_size_large: "48px",
-        border_radius: "8px"
-      };
-      console.log("✅ Added default color scheme");
-    }
+    // ============ COLOR SCHEME ============
+    content.color_scheme = {
+      primary_color: cleanColor(existingBrandColors[0] || "#6366F1"),
+      secondary_color: cleanColor(existingBrandColors[1] || "#8B5CF6"),
+      accent_color: "#818CF8",
+      background_color: "#FFFFFF",
+      surface_color: "#F8F9FA",
+      text_color: "#333333",
+      heading_color: "#111111",
+      muted_text_color: "#6B7280",
+      button_color: cleanColor(existingBrandColors[0] || "#6366F1"),
+      button_text_color: "#FFFFFF",
+      button_hover_color: "#5558E6",
+      link_color: "#6366F1",
+      border_color: "#E5E7EB",
+      font_family: "Inter, sans-serif",
+      font_size_base: "16px",
+      font_size_small: "14px",
+      font_size_heading: "32px",
+      font_size_large: "48px",
+      border_radius: "8px"
+    };
 
-    // 8. Metadata check
-    if (!content.metadata || !content.metadata.site_title) {
-      content.metadata = {
-        site_title: businessName,
-        site_description: businessDescription.slice(0, 150),
-        keywords: [
-          businessName.toLowerCase(),
-          industry.toLowerCase(),
-          location.toLowerCase(),
-          ...productsServices.slice(0, 3).map((s: string) => s.toLowerCase()),
-          "best services",
-          "affordable"
-        ]
-      };
-      console.log("✅ Added default metadata");
-    }
+    console.log("✅ Color scheme generated");
 
-    console.log(`📊 Final pages: ${content.pages.length}`);
-    console.log(`📊 Final sitemap: ${content.sitemap.length}`);
-    console.log(`📊 Final services: ${content.services.length}`);
-    console.log(`📊 Final FAQs: ${content.faqs.length}`);
-    console.log(`📊 Color scheme: ${Object.keys(content.color_scheme).length} fields`);
-    console.log(`📊 Metadata: ${content.metadata ? "✅" : "❌"}`);
+    // ============ SERVICES ============
+    content.services = productsServices.map((service: string) => ({
+      service_name: service,
+      description: `${service} by ${businessName} for ${targetCustomers}.`,
+      features: ["Professional service", "Quality guaranteed", "Affordable pricing"]
+    }));
 
-    // ============ MANUAL HTML GENERATION ============
-    console.log("📝 Generating HTML manually...");
+    console.log(`✅ Generated ${content.services.length} services`);
+
+    // ============ FAQS ============
+    content.faqs = [
+      { question: `What services does ${businessName} offer?`, answer: `We offer ${productsServices.join(', ')}.`, category: "general" },
+      { question: `Where is ${businessName} located?`, answer: `We are in ${location} serving ${serviceArea}.`, category: "location" },
+      { question: "How can I contact you?", answer: "Contact us through our contact page.", category: "general" },
+      { question: "Do you offer free consultations?", answer: "Yes, we offer free initial consultations.", category: "general" }
+    ];
+
+    console.log(`✅ Generated ${content.faqs.length} FAQs`);
+
+    // ============ SITEMAP ============
+    content.sitemap = content.pages.map((page: any, index: number) => ({
+      page_name: page.page_name,
+      slug: page.page_name.toLowerCase().replace(/\s+/g, '-'),
+      parent_page: null,
+      order: index + 1
+    }));
+
+    console.log(`✅ Generated sitemap with ${content.sitemap.length} pages`);
+
+    // ============ METADATA ============
+    content.metadata = {
+      site_title: businessName,
+      site_description: businessDescription.slice(0, 150),
+      keywords: [
+        businessName.toLowerCase(),
+        industry.toLowerCase(),
+        location.toLowerCase(),
+        ...productsServices.slice(0, 3).map(s => s.toLowerCase())
+      ]
+    };
+
+    console.log("✅ Metadata generated");
+
+    // ============ HTML GENERATION ============
+    console.log("📝 Generating HTML for all pages...");
 
     const pageNames = content.pages.map((p: any) => p.page_name);
     const previewHtml: Record<string, string> = {};
@@ -431,10 +377,16 @@ Return JSON with ALL these fields:
         content.color_scheme,
         businessName,
         pageNames,
+        contactInformation,
+        industry,
+        productsServices,
       );
+      
       previewHtml[page.page_name] = html;
       console.log(`✅ ${page.page_name} HTML generated`);
     }
+
+    console.log(`📊 Total HTML pages: ${Object.keys(previewHtml).length}`);
 
     // ============ SAVE ============
     const finalContent = {
@@ -447,17 +399,9 @@ Return JSON with ALL these fields:
         project_id, user_id, type, input, output, model, tokens_used, status
       ) VALUES (
         ${projectId}, ${userId}, 'website_generation',
-        ${JSON.stringify({ 
-          profile: { 
-            business_name: businessName, 
-            industry,
-            target_customers: targetCustomers,
-            main_goals: mainGoals,
-            location
-          } 
-        })}::jsonb,
+        ${JSON.stringify({ profile: { business_name: businessName, industry } })}::jsonb,
         ${JSON.stringify(finalContent)}::jsonb,
-        'qwen3.8-27b', 0, 'draft'
+        'dynamic-template', 0, 'draft'
       )
     `);
 
@@ -472,28 +416,26 @@ Return JSON with ALL these fields:
     `);
 
     // ============ SEND EMAIL ============
-try {
-  const userResult = await db.execute(sql`
-    SELECT email, name FROM "user" WHERE id = ${userId}
-  `);
-  
-  const user = userResult.rows[0] as any;
-  
-  if (user?.email) {
-    await sendGenerationReadyEmail(
-      user.email,
-      user.name || "User",
-      content.pages.length,
-      content.services.length,
-      content.faqs.length,
-    );
-    console.log("✅ Email sent to:", user.email);
-  } else {
-    console.log("⚠️ No email found for user");
-  }
-} catch (emailError) {
-  console.error("⚠️ Email sending failed (non-critical):", emailError);
-}
+    try {
+      const userResult = await db.execute(sql`
+        SELECT email, name FROM "user" WHERE id = ${userId}
+      `);
+      
+      const user = userResult.rows[0] as any;
+      
+      if (user?.email) {
+        await sendGenerationReadyEmail(
+          user.email,
+          user.name || "User",
+          content.pages.length,
+          content.services.length,
+          content.faqs.length,
+        );
+        console.log("✅ Email sent to:", user.email);
+      }
+    } catch (emailError) {
+      console.error("⚠️ Email sending failed:", emailError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -505,8 +447,6 @@ try {
         sitemapCount: content.sitemap.length,
         servicesCount: content.services.length,
         faqsCount: content.faqs.length,
-        hasColorScheme: !!content.color_scheme,
-        hasMetadata: !!content.metadata,
       },
     });
 

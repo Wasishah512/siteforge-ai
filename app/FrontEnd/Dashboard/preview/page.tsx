@@ -65,7 +65,10 @@ export default function PreviewPage() {
 
       setPreviewData(data);
 
-      const pages = Object.keys(data.previewHtml || {});
+      // Preview page mein pages filter karo
+      const pages = Object.keys(data.previewHtml).filter(
+        (key) => key !== "undefined" && key !== "null",
+      );
       if (pages.length > 0) {
         setActivePage(pages[0]);
       }

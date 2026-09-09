@@ -168,7 +168,7 @@ export default function ContentPage() {
   }
 
   const activePageContent = content.pages.find(
-    (p: any) => p.page_name === activePage,
+    (p: any) => (p.page_name || p.name) === activePage,
   );
 
   return (
