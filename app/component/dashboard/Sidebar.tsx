@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   BarChart3,
   Bot,
@@ -18,6 +19,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "../../../lib/auth-client";
 import { useProjectStore } from "./store/projectStore";
+import WorkspaceNameModal from "../dashboard/workspaceNameModal";
 
 const navItems = [
   { label: "Overview", icon: LayoutDashboard, href: "/FrontEnd/Dashboard" },
@@ -44,7 +46,10 @@ export default function Sidebar({
   const router = useRouter();
   const { data: session } = authClient.useSession();
   const pathname = usePathname();
-  const { projects, workspace, selectedProject } = useProjectStore();
+  const { projects, workspace, selectedProject, setWorkspace } =
+    useProjectStore();
+
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
 
   const navigate = (href: string) => {
     router.push(href);
@@ -66,6 +71,38 @@ export default function Sidebar({
     }
   };
 
+  const handleSaveWorkspaceName = async (name: string) => {
+    console.log("1️⃣ Name from modal:", name);
+    console.log("2️⃣ Workspace object:", workspace);
+
+    if (!workspace?.id) {
+      throw new Error("No workspace found");
+    }
+
+    console.log("3️⃣ Sending to API...");
+
+    const response = await fetch("/api/workspace", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId: workspace.id,
+        name: name, // ✅ Name yahan aani chahiye
+      }),
+    });
+
+    console.log("4️⃣ Response status:", response.status);
+
+    const data = await response.json();
+    console.log("5️⃣ Response data:", data);
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to update workspace");
+    }
+
+    setWorkspace(data);
+    console.log("6️⃣ Store updated");
+  };
+
   return (
     <>
       {mobileNav && (
@@ -77,6 +114,7 @@ export default function Sidebar({
       )}
 
       <aside className={`sidebar ${mobileNav ? "sidebar-open" : ""}`}>
+        {/* Brand */}
         <div className="brand">
           <span className="brand-mark">
             <Sparkles size={16} />
@@ -85,16 +123,33 @@ export default function Sidebar({
           <span className="brand-ai">AI</span>
         </div>
 
-        <div className="workspace-switcher">
-          <div className="workspace-icon">
+        {/* ✅ Workspace Switcher - Tailwind */}
+        <button
+          type="button"
+          onClick={() => setShowWorkspaceModal(true)}
+          className="group flex items-center gap-3 w-[calc(100%-24px)] mx-3 my-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] hover:border-indigo-500/30 transition-all duration-200 text-left"
+        >
+          {/* Icon */}
+          <div className="w-10 h-10 rounded-[10px] bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-base shrink-0 shadow-lg shadow-indigo-500/30">
             {workspace?.name?.charAt(0).toUpperCase() || "W"}
           </div>
-          <div>
-            <p>{workspace?.name || "My Workspace"}</p>
-            <span>Personal workspace</span>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white truncate m-0">
+              {workspace?.name || "My Workspace"}
+            </p>
+            <p className="text-[11px] text-gray-400 mt-0.5 m-0 group-hover:text-indigo-300 transition-colors">
+              Click to rename
+            </p>
           </div>
-          <ChevronDown size={15} />
-        </div>
+
+          {/* Chevron */}
+          <ChevronDown
+            size={16}
+            className="text-gray-400 shrink-0 group-hover:text-indigo-400 transition-colors"
+          />
+        </button>
 
         <nav className="main-nav" aria-label="Main navigation">
           <span className="nav-label">Workspace</span>
@@ -171,7 +226,6 @@ export default function Sidebar({
             <span>Help center</span>
           </button>
 
-          {/* Logout Button */}
           <button
             onClick={handleLogout}
             className="nav-item text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
@@ -181,7 +235,7 @@ export default function Sidebar({
           </button>
 
           {/* Profile Row */}
-          <div className="profile-row flex items-center gap-3 p-3 border-t border-white/10 mt-2">
+          <div className="flex items-center gap-3 p-3 border-t border-white/10 mt-2">
             <div className="w-10 h-10 rounded-full overflow-hidden flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white font-semibold text-base flex-shrink-0 border-2 border-white/20">
               {session?.user?.image ? (
                 <img
@@ -206,6 +260,15 @@ export default function Sidebar({
           </div>
         </div>
       </aside>
+
+      {/* Workspace Name Modal */}
+      <WorkspaceNameModal
+        open={showWorkspaceModal}
+        onClose={() => setShowWorkspaceModal(false)}
+        onSave={handleSaveWorkspaceName}
+        defaultName={workspace?.name || ""}
+        isFirstTime={false}
+      />
     </>
   );
 }

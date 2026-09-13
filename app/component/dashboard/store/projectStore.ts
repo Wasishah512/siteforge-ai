@@ -33,7 +33,8 @@ type ProjectStore = {
   isLoading: boolean;
   error: string | null;
 
-  // Actions
+  // ✅ Actions
+  setWorkspace: (workspace: Workspace | null) => void;
   fetchWorkspace: () => Promise<Workspace | null>;
   createWorkspace: (name: string) => Promise<Workspace | null>;
   fetchProjects: (workspaceId?: string) => Promise<void>;
@@ -51,29 +52,32 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   isLoading: false,
   error: null,
 
+  // ✅ SET WORKSPACE - Ye add karo
+  setWorkspace: (workspace) => set({ workspace }),
+
   // Fetch workspace
   fetchWorkspace: async () => {
     set({ isLoading: true, error: null });
     try {
       const response = await fetch("/api/workspace");
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch workspace");
       }
 
       const data = await response.json();
-      
+
       // Handle both array and single object response
       const workspace = Array.isArray(data) ? data[0] : data;
-      
+
       set({ workspace, isLoading: false });
       return workspace;
     } catch (error) {
       console.error("Fetch workspace error:", error);
-      set({ 
+      set({
         error: error instanceof Error ? error.message : "Failed to fetch workspace",
-        isLoading: false 
+        isLoading: false,
       });
       return null;
     }
@@ -103,9 +107,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return workspace;
     } catch (error) {
       console.error("Create workspace error:", error);
-      set({ 
+      set({
         error: error instanceof Error ? error.message : "Failed to create workspace",
-        isLoading: false 
+        isLoading: false,
       });
       return null;
     }
@@ -114,7 +118,7 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   // Fetch projects
   fetchProjects: async (workspaceId?: string) => {
     const currentWorkspaceId = workspaceId || get().workspace?.id;
-    
+
     if (!currentWorkspaceId) {
       console.error("No workspace ID available");
       return;
@@ -123,14 +127,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`/api/projects?workspaceId=${currentWorkspaceId}`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch projects");
       }
 
       const projects = await response.json();
-      
+
       const enhancedProjects = projects.map((project: Project) => ({
         ...project,
         color: project.color || "violet",
@@ -140,9 +144,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       set({ projects: enhancedProjects, isLoading: false });
     } catch (error) {
       console.error("Fetch projects error:", error);
-      set({ 
+      set({
         error: error instanceof Error ? error.message : "Failed to fetch projects",
-        isLoading: false 
+        isLoading: false,
       });
     }
   },
@@ -169,9 +173,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         "product_website",
         "landing_page",
         "campaign_website",
-        "industry_website"
+        "industry_website",
       ];
-      
+
       const projectType = validTypes.includes(projectData.type as string)
         ? projectData.type
         : "client_website";
@@ -216,9 +220,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       return enhancedProject;
     } catch (error) {
       console.error("Create project error:", error);
-      set({ 
+      set({
         error: error instanceof Error ? error.message : "Failed to create project",
-        isLoading: false 
+        isLoading: false,
       });
       return null;
     }
@@ -253,9 +257,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
     } catch (error) {
       console.error("Update project error:", error);
-      set({ 
+      set({
         error: error instanceof Error ? error.message : "Failed to update project",
-        isLoading: false 
+        isLoading: false,
       });
     }
   },
@@ -288,9 +292,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
       }));
     } catch (error) {
       console.error("Delete project error:", error);
-      set({ 
+      set({
         error: error instanceof Error ? error.message : "Failed to delete project",
-        isLoading: false 
+        isLoading: false,
       });
     }
   },
