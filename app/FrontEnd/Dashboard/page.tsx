@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import WelcomeSection from "../../component/dashboard/WelcomeSetion";
 import ActiveProject from "../../component/dashboard/ActivityProject";
@@ -13,6 +13,7 @@ import type { FormData } from "../../component/dashboard/AIChat";
 import { useProjectStore } from "../../component/dashboard/store/projectStore";
 import type { Project } from "../../component/dashboard/store/projectStore";
 import { authClient } from "../../../lib/auth-client";
+
 const steps = [
   { label: "Business profile", detail: "Your goals and audience", done: true },
   { label: "Site structure", detail: "Pages and navigation", done: true },
@@ -31,7 +32,10 @@ type Message = {
   text: string;
 };
 
-export default function DashboardPage() {
+// =========================================================
+// INNER COMPONENT — actual dashboard (uses useSearchParams)
+// =========================================================
+function DashboardContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = authClient.useSession();
@@ -65,11 +69,9 @@ export default function DashboardPage() {
     const loadData = async () => {
       console.log("📥 Loading dashboard data...");
 
-      // 1. Fetch workspace
       const workspaceData = await fetchWorkspace();
       console.log("✅ Workspace loaded:", workspaceData);
 
-      // 2. If workspace exists, fetch projects
       if (workspaceData?.id) {
         await fetchProjects(workspaceData.id);
         console.log("✅ Projects loaded");
@@ -239,5 +241,22 @@ export default function DashboardPage() {
       {isLoading && <div className="loading-indicator">Loading...</div>}
       {error && <div className="error-message">{error}</div>}
     </>
+  );
+}
+
+// =========================================================
+// OUTER WRAPPER — Suspense boundary (fixes build error)
+// =========================================================
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0a0a0b] flex items-center justify-center">
+          <div className="text-white/60 text-sm">Loading dashboard...</div>
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
