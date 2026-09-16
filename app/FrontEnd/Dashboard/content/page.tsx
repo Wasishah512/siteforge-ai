@@ -18,7 +18,8 @@ import {
   Eye,
   Sparkles,
   Palette,
-  X,
+  Download,
+  FileJson,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProjectStore } from "../../../component/dashboard/store/projectStore";
@@ -45,6 +46,9 @@ export default function ContentPage() {
   const [seoPrompt, setSeoPrompt] = useState("");
   const [editingService, setEditingService] = useState<number | null>(null);
   const [servicePrompt, setServicePrompt] = useState("");
+
+  // Export state
+  const [exporting, setExporting] = useState<"json" | "pdf" | null>(null);
 
   useEffect(() => {
     if (selectedProject?.id) {
@@ -94,7 +98,7 @@ export default function ContentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId: selectedProject?.id,
-          editType, // section | color | faq | seo | service
+          editType,
           prompt,
           targetData,
           currentContent: content,
@@ -107,11 +111,8 @@ export default function ContentPage() {
       }
 
       const data = await response.json();
-
-      // Content update karo
       setContent(data.updatedContent);
 
-      // Edit states reset karo
       setEditingSection(null);
       setEditingColor(false);
       setEditingFAQ(null);
@@ -129,6 +130,50 @@ export default function ContentPage() {
       alert(error instanceof Error ? error.message : "Failed to edit");
     } finally {
       setIsEditing(false);
+    }
+  };
+
+  // ================= EXPORT HANDLER =================
+  const handleExport = async (type: "json" | "pdf") => {
+    if (!selectedProject?.id) {
+      alert("No project selected");
+      return;
+    }
+
+    setExporting(type);
+    try {
+      const res = await fetch(
+        `/api/projects/${selectedProject.id}/export?type=${type}`,
+      );
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `Export ${type} failed`);
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      const cd = res.headers.get("Content-Disposition");
+      const match = cd?.match(/filename="(.+)"/);
+      const filename = match?.[1] ?? `siteforge-export.${type}`;
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export error:", err);
+      alert(
+        err instanceof Error
+          ? err.message
+          : `Export ${type.toUpperCase()} failed`,
+      );
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -172,80 +217,63 @@ export default function ContentPage() {
   );
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(to bottom, #1a1a2e, #0a0a0b)",
-        padding: "2rem",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "2rem",
-          flexWrap: "wrap",
-          gap: "1rem",
-        }}
-      >
+    <div className="min-h-screen bg-gradient-to-b from-[#1a1a2e] to-[#0a0a0b] p-8">
+      {/* ================= HEADER ================= */}
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
         <div>
-          <h1
-            style={{ fontSize: "1.5rem", fontWeight: "bold", color: "white" }}
-          >
-            Content Studio
-          </h1>
-          <p style={{ color: "#9ca3af", marginTop: "0.25rem" }}>
+          <h1 className="text-2xl font-bold text-white">Content Studio</h1>
+          <p className="text-gray-400 mt-1">
             {content.metadata?.site_title || "Generated Content"}
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.75rem",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "0.75rem",
-              padding: "0.75rem 1rem",
-              minWidth: "250px",
-            }}
-          >
-            <Search size={16} style={{ color: "#9ca3af" }} />
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Search */}
+          <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3 min-w-[250px]">
+            <Search size={16} className="text-gray-400" />
             <input
               type="text"
               placeholder="Search content..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                background: "transparent",
-                outline: "none",
-                color: "white",
-                flex: 1,
-                border: "none",
-              }}
+              className="bg-transparent outline-none text-white flex-1 border-none placeholder:text-gray-500"
             />
           </div>
 
+          {/* Export JSON */}
+          <button
+            onClick={() => handleExport("json")}
+            disabled={exporting !== null}
+            title="Export JSON"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/5 border border-white/15 text-white font-semibold text-sm whitespace-nowrap transition-all hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exporting === "json" ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <FileJson size={16} />
+            )}
+            {exporting === "json" ? "Exporting..." : "JSON"}
+          </button>
+
+          {/* Export PDF */}
+          <button
+            onClick={() => handleExport("pdf")}
+            disabled={exporting !== null}
+            title="Export PDF"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/5 border border-white/15 text-white font-semibold text-sm whitespace-nowrap transition-all hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {exporting === "pdf" ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            {exporting === "pdf" ? "Generating..." : "PDF"}
+          </button>
+
+          {/* Preview */}
           <button
             onClick={() => router.push("/FrontEnd/Dashboard/preview")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.75rem 1.5rem",
-              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-              border: "none",
-              borderRadius: "0.75rem",
-              color: "white",
-              fontWeight: 600,
-              fontSize: "0.875rem",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-white font-semibold text-sm whitespace-nowrap"
           >
             <Eye size={16} />
             Preview
@@ -253,17 +281,11 @@ export default function ContentPage() {
         </div>
       </div>
 
-      {/* Page Tabs */}
-      <div
-        style={{
-          display: "flex",
-          gap: "0.5rem",
-          marginBottom: "2rem",
-          flexWrap: "wrap",
-        }}
-      >
+      {/* ================= PAGE TABS ================= */}
+      <div className="flex gap-2 mb-8 flex-wrap">
         {content.pages.map((page: any) => {
           const Icon = pageIcons[page.page_name] || FileText;
+          const isActive = activePage === page.page_name;
           return (
             <button
               key={page.page_name}
@@ -271,25 +293,11 @@ export default function ContentPage() {
                 setActivePage(page.page_name);
                 setEditingSection(null);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                padding: "0.75rem 1.25rem",
-                borderRadius: "0.75rem",
-                background:
-                  activePage === page.page_name
-                    ? "rgba(99,102,241,0.2)"
-                    : "rgba(255,255,255,0.05)",
-                border:
-                  activePage === page.page_name
-                    ? "1px solid rgba(99,102,241,0.5)"
-                    : "1px solid rgba(255,255,255,0.1)",
-                color: activePage === page.page_name ? "#a5b4fc" : "#9ca3af",
-                fontSize: "0.875rem",
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium transition-all ${
+                isActive
+                  ? "bg-indigo-500/20 border border-indigo-500/50 text-indigo-300"
+                  : "bg-white/5 border border-white/10 text-gray-400 hover:bg-white/10"
+              }`}
             >
               <Icon size={16} />
               {page.page_name}
@@ -298,76 +306,26 @@ export default function ContentPage() {
         })}
       </div>
 
-      {/* Page Content */}
+      {/* ================= PAGE CONTENT ================= */}
       {activePageContent && (
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}
-        >
-          <div
-            style={{
-              background: "rgba(255,255,255,0.03)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "1rem",
-              padding: "1.5rem",
-            }}
-          >
-            <h2
-              style={{
-                fontSize: "1.25rem",
-                fontWeight: "bold",
-                color: "white",
-              }}
-            >
+        <div className="flex flex-col gap-6">
+          <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
+            <h2 className="text-xl font-bold text-white">
               {activePageContent.title}
             </h2>
-            <p
-              style={{
-                color: "#9ca3af",
-                fontSize: "0.875rem",
-                marginTop: "0.25rem",
-              }}
-            >
+            <p className="text-gray-400 text-sm mt-1">
               {activePageContent.meta_description}
             </p>
           </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
-              gap: "1rem",
-            }}
-          >
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(350px,1fr))] gap-4">
             {activePageContent.sections.map((section: any, index: number) => (
               <div
                 key={index}
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "1rem",
-                  padding: "1.5rem",
-                  position: "relative",
-                }}
+                className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 relative"
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "0.75rem",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      padding: "0.25rem 0.75rem",
-                      background: "rgba(99,102,241,0.2)",
-                      borderRadius: "9999px",
-                      fontSize: "0.75rem",
-                      color: "#a5b4fc",
-                      textTransform: "uppercase",
-                    }}
-                  >
+                <div className="flex justify-between items-center mb-3">
+                  <span className="inline-block px-3 py-1 bg-indigo-500/20 rounded-full text-xs text-indigo-300 uppercase">
                     {section.section_type.replace(/_/g, " ")}
                   </span>
 
@@ -378,72 +336,29 @@ export default function ContentPage() {
                       );
                       setAiPrompt("");
                     }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.25rem",
-                      padding: "0.25rem 0.75rem",
-                      background: "rgba(99,102,241,0.15)",
-                      border: "1px solid rgba(99,102,241,0.3)",
-                      borderRadius: "0.5rem",
-                      color: "#a5b4fc",
-                      fontSize: "0.75rem",
-                      cursor: "pointer",
-                    }}
+                    className="flex items-center gap-1 px-3 py-1 bg-indigo-500/15 border border-indigo-500/30 rounded-lg text-indigo-300 text-xs hover:bg-indigo-500/25 transition-all"
                   >
                     <Edit3 size={12} />
                     Edit with AI
                   </button>
                 </div>
 
-                <h3
-                  style={{
-                    color: "white",
-                    fontSize: "1.125rem",
-                    fontWeight: 600,
-                    marginBottom: "0.75rem",
-                  }}
-                >
+                <h3 className="text-white text-lg font-semibold mb-3">
                   {section.heading}
                 </h3>
-                <p
-                  style={{
-                    color: "#9ca3af",
-                    fontSize: "0.95rem",
-                    lineHeight: 1.6,
-                  }}
-                >
+                <p className="text-gray-400 text-[0.95rem] leading-relaxed">
                   {section.content}
                 </p>
 
                 {editingSection === index && (
-                  <div
-                    style={{
-                      marginTop: "1rem",
-                      padding: "1rem",
-                      background: "rgba(0,0,0,0.3)",
-                      borderRadius: "0.75rem",
-                    }}
-                  >
+                  <div className="mt-4 p-4 bg-black/30 rounded-xl">
                     <textarea
                       value={aiPrompt}
                       onChange={(e) => setAiPrompt(e.target.value)}
                       placeholder="Example: Make this more professional, shorten it..."
-                      style={{
-                        width: "100%",
-                        minHeight: "60px",
-                        padding: "0.75rem",
-                        background: "rgba(255,255,255,0.05)",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        borderRadius: "0.5rem",
-                        color: "white",
-                        outline: "none",
-                        fontSize: "0.875rem",
-                        marginBottom: "0.5rem",
-                        resize: "vertical",
-                      }}
+                      className="w-full min-h-[60px] p-3 bg-white/5 border border-white/10 rounded-lg text-white outline-none text-sm mb-2 resize-y placeholder:text-gray-500"
                     />
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                    <div className="flex gap-2">
                       <button
                         onClick={() =>
                           handleAIEdit("section", aiPrompt, {
@@ -452,36 +367,14 @@ export default function ContentPage() {
                           })
                         }
                         disabled={isEditing || !aiPrompt.trim()}
-                        style={{
-                          flex: 1,
-                          padding: "0.5rem",
-                          background:
-                            "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                          border: "none",
-                          borderRadius: "0.5rem",
-                          color: "white",
-                          fontWeight: 600,
-                          cursor: isEditing ? "not-allowed" : "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "0.25rem",
-                          opacity: isEditing ? 0.5 : 1,
-                        }}
+                        className="flex-1 p-2 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] rounded-lg text-white font-semibold flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Sparkles size={14} />
                         {isEditing ? "Editing..." : "Apply AI Edit"}
                       </button>
                       <button
                         onClick={() => setEditingSection(null)}
-                        style={{
-                          padding: "0.5rem 1rem",
-                          background: "rgba(255,255,255,0.1)",
-                          border: "none",
-                          borderRadius: "0.5rem",
-                          color: "white",
-                          cursor: "pointer",
-                        }}
+                        className="px-4 py-2 bg-white/10 rounded-lg text-white hover:bg-white/15 transition-all"
                       >
                         Cancel
                       </button>
@@ -494,42 +387,16 @@ export default function ContentPage() {
         </div>
       )}
 
-      {/* Services */}
+      {/* ================= SERVICES ================= */}
       {activePage === "Services" && content.services && (
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: "1rem",
-            marginTop: "2rem",
-          }}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-8">
           {content.services.map((service: any, index: number) => (
             <div
               key={index}
-              style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "1rem",
-                padding: "1.5rem",
-                position: "relative",
-              }}
+              className="bg-white/[0.03] border border-white/10 rounded-2xl p-6 relative"
             >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  marginBottom: "0.5rem",
-                }}
-              >
-                <h3
-                  style={{
-                    color: "white",
-                    fontSize: "1.125rem",
-                    fontWeight: 600,
-                  }}
-                >
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-white text-lg font-semibold">
                   {service.service_name}
                 </h3>
                 <button
@@ -537,84 +404,35 @@ export default function ContentPage() {
                     setEditingService(editingService === index ? null : index);
                     setServicePrompt("");
                   }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.25rem",
-                    padding: "0.25rem 0.5rem",
-                    background: "rgba(99,102,241,0.15)",
-                    border: "1px solid rgba(99,102,241,0.3)",
-                    borderRadius: "0.5rem",
-                    color: "#a5b4fc",
-                    fontSize: "0.7rem",
-                    cursor: "pointer",
-                  }}
+                  className="flex items-center gap-1 px-2 py-1 bg-indigo-500/15 border border-indigo-500/30 rounded-lg text-indigo-300 text-[0.7rem] hover:bg-indigo-500/25 transition-all"
                 >
                   <Edit3 size={12} />
                 </button>
               </div>
-              <p
-                style={{
-                  color: "#9ca3af",
-                  fontSize: "0.9rem",
-                  marginBottom: "1rem",
-                }}
-              >
+              <p className="text-gray-400 text-sm mb-4">
                 {service.description}
               </p>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              <ul className="list-none p-0 m-0">
                 {service.features.map((feature: string, idx: number) => (
                   <li
                     key={idx}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.5rem",
-                      color: "#d1d5db",
-                      fontSize: "0.875rem",
-                      padding: "0.25rem 0",
-                    }}
+                    className="flex items-center gap-2 text-gray-300 text-sm py-1"
                   >
-                    <span
-                      style={{
-                        width: "6px",
-                        height: "6px",
-                        background: "#818cf8",
-                        borderRadius: "50%",
-                      }}
-                    />
+                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full" />
                     {feature}
                   </li>
                 ))}
               </ul>
 
               {editingService === index && (
-                <div
-                  style={{
-                    marginTop: "1rem",
-                    padding: "1rem",
-                    background: "rgba(0,0,0,0.3)",
-                    borderRadius: "0.75rem",
-                  }}
-                >
+                <div className="mt-4 p-4 bg-black/30 rounded-xl">
                   <textarea
                     value={servicePrompt}
                     onChange={(e) => setServicePrompt(e.target.value)}
                     placeholder="Edit this service..."
-                    style={{
-                      width: "100%",
-                      minHeight: "50px",
-                      padding: "0.75rem",
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "0.5rem",
-                      color: "white",
-                      outline: "none",
-                      fontSize: "0.875rem",
-                      marginBottom: "0.5rem",
-                    }}
+                    className="w-full min-h-[50px] p-3 bg-white/5 border border-white/10 rounded-lg text-white outline-none text-sm mb-2 placeholder:text-gray-500"
                   />
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <div className="flex gap-2">
                     <button
                       onClick={() =>
                         handleAIEdit("service", servicePrompt, {
@@ -622,29 +440,13 @@ export default function ContentPage() {
                         })
                       }
                       disabled={isEditing}
-                      style={{
-                        flex: 1,
-                        padding: "0.5rem",
-                        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                        border: "none",
-                        borderRadius: "0.5rem",
-                        color: "white",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
+                      className="flex-1 p-2 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] rounded-lg text-white font-semibold disabled:opacity-50"
                     >
                       {isEditing ? "Editing..." : "Apply"}
                     </button>
                     <button
                       onClick={() => setEditingService(null)}
-                      style={{
-                        padding: "0.5rem 1rem",
-                        background: "rgba(255,255,255,0.1)",
-                        border: "none",
-                        borderRadius: "0.5rem",
-                        color: "white",
-                        cursor: "pointer",
-                      }}
+                      className="px-4 py-2 bg-white/10 rounded-lg text-white hover:bg-white/15"
                     >
                       Cancel
                     </button>
@@ -656,78 +458,32 @@ export default function ContentPage() {
         </div>
       )}
 
-      {/* FAQ */}
+      {/* ================= FAQ ================= */}
       {activePage === "FAQ" && content.faqs && (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.75rem",
-            marginTop: "2rem",
-          }}
-        >
+        <div className="flex flex-col gap-3 mt-8">
           {content.faqs.map((faq: any, index: number) => (
             <div
               key={index}
-              style={{
-                background: "rgba(255,255,255,0.03)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "0.75rem",
-                overflow: "hidden",
-              }}
+              className="bg-white/[0.03] border border-white/10 rounded-xl overflow-hidden"
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  padding: "1rem 1.25rem",
-                }}
-              >
+              <div className="flex items-center px-5 py-4">
                 <button
                   onClick={() =>
                     setExpandedFaq(
                       expandedFaq === faq.question ? null : faq.question,
                     )
                   }
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    flex: 1,
-                    color: "white",
-                    fontWeight: 500,
-                    textAlign: "left",
-                    cursor: "pointer",
-                    border: "none",
-                    background: "transparent",
-                  }}
+                  className="flex justify-between items-center flex-1 text-white font-medium text-left bg-transparent border-none"
                 >
                   <span>{faq.question}</span>
                 </button>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                  }}
-                >
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
                       setEditingFAQ(editingFAQ === index ? null : index);
                       setFaqPrompt("");
                     }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.25rem",
-                      padding: "0.25rem 0.5rem",
-                      background: "rgba(99,102,241,0.15)",
-                      border: "1px solid rgba(99,102,241,0.3)",
-                      borderRadius: "0.5rem",
-                      color: "#a5b4fc",
-                      fontSize: "0.7rem",
-                      cursor: "pointer",
-                    }}
+                    className="flex items-center gap-1 px-2 py-1 bg-indigo-500/15 border border-indigo-500/30 rounded-lg text-indigo-300 text-[0.7rem] hover:bg-indigo-500/25"
                   >
                     <Edit3 size={12} />
                   </button>
@@ -739,92 +495,37 @@ export default function ContentPage() {
                 </div>
               </div>
               {expandedFaq === faq.question && (
-                <div
-                  style={{
-                    padding: "1rem 1.25rem",
-                    borderTop: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "inline-block",
-                      padding: "0.25rem 0.5rem",
-                      background: "rgba(99,102,241,0.2)",
-                      borderRadius: "0.25rem",
-                      fontSize: "0.75rem",
-                      color: "#a5b4fc",
-                      marginBottom: "0.5rem",
-                    }}
-                  >
+                <div className="px-5 py-4 border-t border-white/10">
+                  <span className="inline-block px-2 py-1 bg-indigo-500/20 rounded text-xs text-indigo-300 mb-2">
                     {faq.category}
                   </span>
-                  <p
-                    style={{
-                      color: "#9ca3af",
-                      fontSize: "0.9rem",
-                      lineHeight: 1.6,
-                      margin: 0,
-                    }}
-                  >
+                  <p className="text-gray-400 text-sm leading-relaxed m-0">
                     {faq.answer}
                   </p>
                 </div>
               )}
 
               {editingFAQ === index && (
-                <div
-                  style={{
-                    padding: "1rem 1.25rem",
-                    borderTop: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(0,0,0,0.3)",
-                  }}
-                >
+                <div className="px-5 py-4 border-t border-white/10 bg-black/30">
                   <textarea
                     value={faqPrompt}
                     onChange={(e) => setFaqPrompt(e.target.value)}
                     placeholder="Edit this FAQ..."
-                    style={{
-                      width: "100%",
-                      minHeight: "50px",
-                      padding: "0.75rem",
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "0.5rem",
-                      color: "white",
-                      outline: "none",
-                      fontSize: "0.875rem",
-                      marginBottom: "0.5rem",
-                    }}
+                    className="w-full min-h-[50px] p-3 bg-white/5 border border-white/10 rounded-lg text-white outline-none text-sm mb-2 placeholder:text-gray-500"
                   />
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <div className="flex gap-2">
                     <button
                       onClick={() =>
                         handleAIEdit("faq", faqPrompt, { faqIndex: index })
                       }
                       disabled={isEditing}
-                      style={{
-                        flex: 1,
-                        padding: "0.5rem",
-                        background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                        border: "none",
-                        borderRadius: "0.5rem",
-                        color: "white",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                      }}
+                      className="flex-1 p-2 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] rounded-lg text-white font-semibold disabled:opacity-50"
                     >
                       {isEditing ? "Editing..." : "Apply"}
                     </button>
                     <button
                       onClick={() => setEditingFAQ(null)}
-                      style={{
-                        padding: "0.5rem 1rem",
-                        background: "rgba(255,255,255,0.1)",
-                        border: "none",
-                        borderRadius: "0.5rem",
-                        color: "white",
-                        cursor: "pointer",
-                      }}
+                      className="px-4 py-2 bg-white/10 rounded-lg text-white hover:bg-white/15"
                     >
                       Cancel
                     </button>
@@ -836,35 +537,11 @@ export default function ContentPage() {
         </div>
       )}
 
-      {/* SEO Keywords */}
+      {/* ================= SEO KEYWORDS ================= */}
       {content.metadata?.keywords && (
-        <div
-          style={{
-            marginTop: "2rem",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "1rem",
-            padding: "1.5rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-            }}
-          >
-            <h2
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                color: "white",
-                fontSize: "1.125rem",
-                fontWeight: 600,
-              }}
-            >
+        <div className="mt-8 bg-white/[0.03] border border-white/10 rounded-2xl p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="flex items-center gap-2 text-white text-lg font-semibold">
               <Tag size={18} />
               SEO Keywords
             </h2>
@@ -873,36 +550,18 @@ export default function ContentPage() {
                 setEditingSEO(!editingSEO);
                 setSeoPrompt("");
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                padding: "0.25rem 0.75rem",
-                background: "rgba(99,102,241,0.15)",
-                border: "1px solid rgba(99,102,241,0.3)",
-                borderRadius: "0.5rem",
-                color: "#a5b4fc",
-                fontSize: "0.75rem",
-                cursor: "pointer",
-              }}
+              className="flex items-center gap-1 px-3 py-1 bg-indigo-500/15 border border-indigo-500/30 rounded-lg text-indigo-300 text-xs hover:bg-indigo-500/25"
             >
               <Edit3 size={12} />
               Edit with AI
             </button>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          <div className="flex flex-wrap gap-2">
             {content.metadata.keywords.map((keyword: string, index: number) => (
               <span
                 key={index}
-                style={{
-                  padding: "0.5rem 1rem",
-                  background: "rgba(99,102,241,0.15)",
-                  border: "1px solid rgba(99,102,241,0.3)",
-                  borderRadius: "9999px",
-                  color: "#a5b4fc",
-                  fontSize: "0.875rem",
-                }}
+                className="px-4 py-2 bg-indigo-500/15 border border-indigo-500/30 rounded-full text-indigo-300 text-sm"
               >
                 {keyword}
               </span>
@@ -910,58 +569,24 @@ export default function ContentPage() {
           </div>
 
           {editingSEO && (
-            <div
-              style={{
-                marginTop: "1rem",
-                padding: "1rem",
-                background: "rgba(0,0,0,0.3)",
-                borderRadius: "0.75rem",
-              }}
-            >
+            <div className="mt-4 p-4 bg-black/30 rounded-xl">
               <textarea
                 value={seoPrompt}
                 onChange={(e) => setSeoPrompt(e.target.value)}
                 placeholder="Improve SEO keywords..."
-                style={{
-                  width: "100%",
-                  minHeight: "50px",
-                  padding: "0.75rem",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "0.5rem",
-                  color: "white",
-                  outline: "none",
-                  fontSize: "0.875rem",
-                  marginBottom: "0.5rem",
-                }}
+                className="w-full min-h-[50px] p-3 bg-white/5 border border-white/10 rounded-lg text-white outline-none text-sm mb-2 placeholder:text-gray-500"
               />
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div className="flex gap-2">
                 <button
                   onClick={() => handleAIEdit("seo", seoPrompt, {})}
                   disabled={isEditing}
-                  style={{
-                    flex: 1,
-                    padding: "0.5rem",
-                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                    border: "none",
-                    borderRadius: "0.5rem",
-                    color: "white",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
+                  className="flex-1 p-2 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] rounded-lg text-white font-semibold disabled:opacity-50"
                 >
                   {isEditing ? "Editing..." : "Apply AI Edit"}
                 </button>
                 <button
                   onClick={() => setEditingSEO(false)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "rgba(255,255,255,0.1)",
-                    border: "none",
-                    borderRadius: "0.5rem",
-                    color: "white",
-                    cursor: "pointer",
-                  }}
+                  className="px-4 py-2 bg-white/10 rounded-lg text-white hover:bg-white/15"
                 >
                   Cancel
                 </button>
@@ -971,35 +596,11 @@ export default function ContentPage() {
         </div>
       )}
 
-      {/* Color Scheme */}
+      {/* ================= COLOR SCHEME ================= */}
       {content.color_scheme && (
-        <div
-          style={{
-            marginTop: "2rem",
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            borderRadius: "1rem",
-            padding: "1.5rem",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "1rem",
-            }}
-          >
-            <h2
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                color: "white",
-                fontSize: "1.125rem",
-                fontWeight: 600,
-              }}
-            >
+        <div className="mt-8 bg-white/[0.03] border border-white/10 rounded-2xl p-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="flex items-center gap-2 text-white text-lg font-semibold">
               <Palette size={18} />
               Color Scheme
             </h2>
@@ -1008,120 +609,54 @@ export default function ContentPage() {
                 setEditingColor(!editingColor);
                 setColorPrompt("");
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                padding: "0.25rem 0.75rem",
-                background: "rgba(99,102,241,0.15)",
-                border: "1px solid rgba(99,102,241,0.3)",
-                borderRadius: "0.5rem",
-                color: "#a5b4fc",
-                fontSize: "0.75rem",
-                cursor: "pointer",
-              }}
+              className="flex items-center gap-1 px-3 py-1 bg-indigo-500/15 border border-indigo-500/30 rounded-lg text-indigo-300 text-xs hover:bg-indigo-500/25"
             >
               <Edit3 size={12} />
               Edit with AI
             </button>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+          <div className="flex flex-wrap gap-4">
             {Object.entries(content.color_scheme)
               .filter(([key]) => key.includes("color"))
               .map(([key, value]: [string, any]) => (
                 <div
                   key={key}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    padding: "0.5rem 1rem",
-                    background: "rgba(255,255,255,0.05)",
-                    borderRadius: "0.5rem",
-                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-white/5 rounded-lg"
                 >
                   <span
-                    style={{
-                      width: "30px",
-                      height: "30px",
-                      background: value,
-                      borderRadius: "0.5rem",
-                      border: "2px solid rgba(255,255,255,0.2)",
-                    }}
+                    className="w-[30px] h-[30px] rounded-lg border-2 border-white/20"
+                    style={{ background: value }}
                   />
                   <div>
-                    <span
-                      style={{
-                        display: "block",
-                        color: "#9ca3af",
-                        fontSize: "0.7rem",
-                        textTransform: "capitalize",
-                      }}
-                    >
+                    <span className="block text-gray-400 text-[0.7rem] capitalize">
                       {key.replace(/_/g, " ")}
                     </span>
-                    <span style={{ color: "white", fontSize: "0.875rem" }}>
-                      {value}
-                    </span>
+                    <span className="text-white text-sm">{value}</span>
                   </div>
                 </div>
               ))}
           </div>
 
           {editingColor && (
-            <div
-              style={{
-                marginTop: "1rem",
-                padding: "1rem",
-                background: "rgba(0,0,0,0.3)",
-                borderRadius: "0.75rem",
-              }}
-            >
+            <div className="mt-4 p-4 bg-black/30 rounded-xl">
               <textarea
                 value={colorPrompt}
                 onChange={(e) => setColorPrompt(e.target.value)}
                 placeholder="Example: Make colors more elegant, use blue theme..."
-                style={{
-                  width: "100%",
-                  minHeight: "50px",
-                  padding: "0.75rem",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "0.5rem",
-                  color: "white",
-                  outline: "none",
-                  fontSize: "0.875rem",
-                  marginBottom: "0.5rem",
-                }}
+                className="w-full min-h-[50px] p-3 bg-white/5 border border-white/10 rounded-lg text-white outline-none text-sm mb-2 placeholder:text-gray-500"
               />
-              <div style={{ display: "flex", gap: "0.5rem" }}>
+              <div className="flex gap-2">
                 <button
                   onClick={() => handleAIEdit("color", colorPrompt, {})}
                   disabled={isEditing}
-                  style={{
-                    flex: 1,
-                    padding: "0.5rem",
-                    background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
-                    border: "none",
-                    borderRadius: "0.5rem",
-                    color: "white",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
+                  className="flex-1 p-2 bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] rounded-lg text-white font-semibold disabled:opacity-50"
                 >
                   {isEditing ? "Editing..." : "Apply AI Edit"}
                 </button>
                 <button
                   onClick={() => setEditingColor(false)}
-                  style={{
-                    padding: "0.5rem 1rem",
-                    background: "rgba(255,255,255,0.1)",
-                    border: "none",
-                    borderRadius: "0.5rem",
-                    color: "white",
-                    cursor: "pointer",
-                  }}
+                  className="px-4 py-2 bg-white/10 rounded-lg text-white hover:bg-white/15"
                 >
                   Cancel
                 </button>
