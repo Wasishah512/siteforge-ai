@@ -11,7 +11,7 @@ import QuickActions from "../../component/dashboard/QuickActions";
 import AIChat from "../../component/dashboard/AIChat";
 import type { FormData } from "../../component/dashboard/AIChat";
 import { useProjectStore } from "../../component/dashboard/store/projectStore";
-import type { Project } from "../../component/dashboard/store/projectStore";
+// import type { Project } from "../../component/dashboard/store/projectStore";
 import { authClient } from "../../../lib/auth-client";
 
 const steps = [
