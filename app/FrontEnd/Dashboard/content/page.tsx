@@ -20,13 +20,15 @@ import {
   Palette,
   Download,
   FileJson,
+  CheckCircle2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useProjectStore } from "../../../component/dashboard/store/projectStore";
 
 export default function ContentPage() {
   const router = useRouter();
-  const { selectedProject } = useProjectStore();
+  const { selectedProject, setSelectedProject, updateProject } =
+    useProjectStore();
   const [content, setContent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -50,9 +52,21 @@ export default function ContentPage() {
   // Export state
   const [exporting, setExporting] = useState<"json" | "pdf" | null>(null);
 
+  // Complete project state
+  const [completing, setCompleting] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+
   useEffect(() => {
     if (selectedProject?.id) {
       fetchContent(selectedProject.id);
+
+      // Check if already completed
+      if (
+        (selectedProject as any)?.status === "completed" ||
+        (selectedProject as any)?.progress === 100
+      ) {
+        setIsCompleted(true);
+      }
     } else {
       setLoading(false);
       setError("No project selected");
@@ -134,6 +148,7 @@ export default function ContentPage() {
   };
 
   // ================= EXPORT HANDLER =================
+
   const handleExport = async (type: "json" | "pdf") => {
     if (!selectedProject?.id) {
       alert("No project selected");
@@ -142,6 +157,7 @@ export default function ContentPage() {
 
     setExporting(type);
     try {
+      // ========== STEP 1: Download file (JSON ya PDF) ==========
       const res = await fetch(
         `/api/projects/${selectedProject.id}/export?type=${type}`,
       );
@@ -165,6 +181,41 @@ export default function ContentPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+
+      // ========== STEP 2: Progress 80% update karo ==========
+      const progressRes = await fetch(`/api/projects/${selectedProject.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          progress: 80,
+          status: "in_progress",
+          current_step: "preview",
+        }),
+      });
+
+      if (progressRes.ok) {
+        const updatedProject = await progressRes.json();
+        console.log("📊 Project progress → 80%", updatedProject);
+
+        // ========== STEP 3: Zustand store update karo ==========
+        updateProject(selectedProject.id, {
+          progress: 80,
+          status: "in_progress",
+          current_step: "preview",
+          updated: "Just now",
+        } as any);
+
+        if (setSelectedProject) {
+          setSelectedProject({
+            ...selectedProject,
+            progress: 80,
+            status: "in_progress",
+            current_step: "preview",
+          } as any);
+        }
+      } else {
+        console.warn("⚠️ Progress update failed, but file was downloaded");
+      }
     } catch (err) {
       console.error("Export error:", err);
       alert(
@@ -174,6 +225,68 @@ export default function ContentPage() {
       );
     } finally {
       setExporting(null);
+    }
+  };
+
+  // ================= COMPLETE PROJECT HANDLER =================
+  const handleCompleteProject = async () => {
+    if (!selectedProject?.id) {
+      alert("No project selected");
+      return;
+    }
+
+    // Confirm dialog
+    const confirmed = window.confirm(
+      "Mark this project as completed?\n\nThis will set progress to 100% and status to 'completed'. You can still edit content afterward.",
+    );
+
+    if (!confirmed) return;
+
+    setCompleting(true);
+
+    try {
+      const response = await fetch(`/api/projects/${selectedProject.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          progress: 100,
+          status: "completed",
+          current_step: "completed",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to complete project");
+      }
+
+      const updatedProject = await response.json();
+
+      // Update Zustand store
+      updateProject(selectedProject.id, {
+        progress: 100,
+        status: "completed",
+        current_step: "completed",
+        updated: "Just now",
+      } as any);
+
+      // Update selected project in store
+      if (setSelectedProject) {
+        setSelectedProject({
+          ...selectedProject,
+          progress: 100,
+          status: "completed",
+          current_step: "completed",
+        } as any);
+      }
+
+      setIsCompleted(true);
+      alert("🎉 Project marked as complete! Progress: 100%");
+    } catch (err) {
+      console.error("Complete project error:", err);
+      alert(err instanceof Error ? err.message : "Failed to complete project");
+    } finally {
+      setCompleting(false);
     }
   };
 
@@ -273,13 +386,56 @@ export default function ContentPage() {
           {/* Preview */}
           <button
             onClick={() => router.push("/FrontEnd/Dashboard/preview")}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-br from-[#6366f1] to-[#8b5cf6] text-white font-semibold text-sm whitespace-nowrap"
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-white/5 border border-white/15 text-white font-semibold text-sm whitespace-nowrap transition-all hover:bg-white/10"
           >
             <Eye size={16} />
             Preview
           </button>
+
+          {/* ✅ NEW — Complete Project Button */}
+          {!isCompleted ? (
+            <button
+              onClick={handleCompleteProject}
+              disabled={completing}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-br from-emerald-500 to-green-600 text-white font-semibold text-sm whitespace-nowrap transition-all hover:from-emerald-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/20"
+            >
+              {completing ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Completing...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={16} />
+                  Mark Complete
+                </>
+              )}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 font-semibold text-sm whitespace-nowrap">
+              <CheckCircle2 size={16} />
+              Completed
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ================= COMPLETED BANNER ================= */}
+      {isCompleted && (
+        <div className="mb-6 flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-4">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+            <CheckCircle2 size={20} className="text-emerald-400" />
+          </div>
+          <div>
+            <p className="text-emerald-400 font-semibold text-sm">
+              Project Completed — 100%
+            </p>
+            <p className="text-emerald-400/70 text-xs mt-0.5">
+              Your website is ready. You can still edit content or export it.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ================= PAGE TABS ================= */}
       <div className="flex gap-2 mb-8 flex-wrap">

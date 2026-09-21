@@ -733,7 +733,7 @@ export default function AIChat({
                   ? "Generating..."
                   : isLoadingProfile
                     ? "Loading profile..."
-                    : "Your Website Copilot"}
+                    : "Your Website Agent"}
               </span>
             </div>
             <div className="flex items-center gap-2">

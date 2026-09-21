@@ -98,6 +98,8 @@ export async function GET(
 
       const filename = `siteforge-${slug}-${timestamp}.pdf`;
 
+      
+
       console.log("✅ PDF ready:", filename);
 
       return new NextResponse(new Uint8Array(pdfBuffer), {
